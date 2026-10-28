@@ -1,0 +1,810 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>確認一覧カード</title>
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --ink: #1f2933; --sub: #5f6b7a; --line: #dde2e8;
+  --accent: #1f4e78; --accent-soft: #e6eef6; --ok: #2f7d4f; --ok-soft: #e5f3ea; --warn: #a15c00; --warn-soft: #fbf0df;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15191e; --panel: #1e242b; --ink: #e6e9ed; --sub: #9aa5b1; --line: #333b45;
+    --accent: #7fb2e5; --accent-soft: #243443; --ok: #6cc28f; --ok-soft: #1f3328; --warn: #e0a54f; --warn-soft: #3a2d1a;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.7 "Yu Gothic UI", "Meiryo", system-ui, sans-serif; }
+header { padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--line); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+header h1 { font-size: 16px; margin: 0; }
+header .file { color: var(--sub); font-size: 13px; }
+header .spacer { flex: 1; }
+button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button:disabled { opacity: .45; cursor: default; }
+#drop { margin: 40px auto; max-width: 560px; padding: 40px 24px; border: 2px dashed var(--line); border-radius: 10px; text-align: center; background: var(--panel); }
+#drop.over { border-color: var(--accent); background: var(--accent-soft); }
+#drop p { margin: 6px 0; color: var(--sub); }
+main { display: none; grid-template-columns: 320px 1fr; gap: 16px; padding: 16px; max-width: 1280px; margin: 0 auto; }
+main.on { display: grid; }
+@media (max-width: 800px) { main.on { grid-template-columns: 1fr; } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+#check { padding: 12px 14px; margin-bottom: 12px; font-size: 13px; }
+#check .row { display: flex; justify-content: space-between; gap: 8px; }
+#check .bad { color: var(--warn); font-weight: bold; }
+#check .good { color: var(--ok); font-weight: bold; }
+#check hr { border: 0; border-top: 1px solid var(--line); margin: 6px 0; }
+#filters { display: flex; gap: 6px; padding: 10px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+#filters button { padding: 3px 10px; font-size: 13px; }
+#filters button.on { background: var(--accent-soft); border-color: var(--accent); }
+#list { max-height: calc(100vh - 380px); overflow: auto; }
+#list .item { padding: 8px 12px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 13px; display: grid; grid-template-columns: 18px 1fr; gap: 6px; }
+#list .item.cur { background: var(--accent-soft); }
+#list .item .no { color: var(--sub); font-size: 12px; }
+#list .mark { width: 10px; height: 10px; border-radius: 50%; margin-top: 6px; border: 2px solid var(--line); }
+#list .mark.done { background: var(--ok); border-color: var(--ok); }
+#list .mark.hold { background: var(--warn); border-color: var(--warn); }
+#list .mark.draft { border-color: var(--accent); border-style: dashed; }
+#complete button { margin-top: 8px; }
+#card { padding: 20px 24px; }
+.meta { display: flex; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--sub); margin-bottom: 6px; }
+.chip { background: var(--accent-soft); color: var(--accent); border-radius: 10px; padding: 1px 10px; }
+#card h2 { font-size: 15px; margin: 4px 0 10px; color: var(--sub); font-weight: normal; }
+.ask { font-size: 17px; line-height: 1.8; margin: 0 0 12px; white-space: pre-wrap; }
+.subs { margin: 0 0 14px; padding: 0; list-style: none; font-size: 13px; color: var(--sub); }
+.subs li { padding: 2px 0; }
+.subs li.cur { color: var(--ink); font-weight: bold; }
+.box { border-left: 3px solid var(--line); padding: 4px 12px; margin: 10px 0; white-space: pre-wrap; }
+.box b { display: block; font-size: 12px; color: var(--sub); }
+.box.advice { border-color: var(--ok); background: var(--ok-soft); }
+details { margin: 10px 0; }
+summary { cursor: pointer; color: var(--sub); font-size: 13px; }
+.answer { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.answer label { display: block; font-size: 12px; color: var(--sub); margin: 10px 0 4px; }
+.answer label.check { display: flex; gap: 6px; align-items: center; font-size: 14px; color: var(--ink); }
+.results { display: flex; gap: 8px; flex-wrap: wrap; }
+.results button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+textarea { width: 100%; min-height: 90px; font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
+textarea.ed { min-height: 48px; }
+#preview { white-space: normal; }
+button.reset { padding: 0 8px; font-size: 12px; margin-left: 6px; }
+.nav { display: flex; justify-content: space-between; margin-top: 16px; }
+.changed { color: var(--warn); font-size: 12px; }
+.hint { font-size: 12px; color: var(--sub); }
+</style>
+</head>
+<body>
+<header>
+  <h1>確認一覧カード</h1>
+  <span class="file" id="fname"></span>
+  <span class="spacer"></span>
+  <b id="progress"></b>
+  <span class="changed" id="dirty"></span>
+  <button class="primary" id="save" disabled>答えを入れた xlsx を保存</button>
+</header>
+
+<div id="drop">
+  <p><b>受け入れ基準と要確認事項か、確認一覧の xlsx を、ここに置くか選んでください</b></p>
+  <p>ファイルはこのパソコンの中だけで読みます（どこにも送りません）</p>
+  <p><input type="file" id="pick" accept=".xlsx"></p>
+  <p id="status" style="color: var(--warn); font-weight: bold;">このページは今、動いていません。エクスプローラーでこのファイルをダブルクリックし、Edge か Chrome で開いてください（Claude のアプリの中では動きません）。</p>
+</div>
+
+<main id="main">
+  <aside>
+    <div class="panel" id="check"></div>
+    <div class="panel">
+      <div id="filters"></div>
+      <div id="list"></div>
+    </div>
+  </aside>
+  <section class="panel" id="card"></section>
+</main>
+
+<script>
+const NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+const COVER = "表紙";
+const AI_RULE = "AI が補った業務の決まり";
+const HOLD = "→検討事項";
+const num = (text, re) => { const m = text.match(re); return m ? +m[1] : null; };
+
+// 読めるシートの形。
+// 要確認事項：1件を番号付きの小問（要約）に分け、小問ごとに答える。書くのは 要約・要約への回答・検討事項・認識合わせ の4列
+// 確認一覧：1行ごとに 確認結果・回答 を書く
+const LAYOUTS = [
+  {
+    sheet: "要確認事項", kind: "種別", ask: "確認内容", where: "理由", sub: true,
+    edit: ["要約", "要約への回答", "検討事項", "認識合わせ"],
+    more: ["共通の問い", "機能要件詳細の記載", "テーブル定義・現行・開発環境の記載", "関係する受け入れ基準"],
+    filters: () => [["業務の分", r => r.v["種別"] !== "開発"], ["開発の分", r => r.v["種別"] !== "業務"]],
+    // 表紙の「件数」の行：要確認事項 n 件（業務 a・開発 b。両方は両方に数える）・…・AI が補った業務の決まり c
+    check: (rows, cover) => {
+      const line = cover.find(t => t.includes("要確認事項") && / 件/.test(t) && t.includes("業務 ")) || "";
+      const issues = rows.filter(r => r.v["理由"] !== AI_RULE);
+      return [
+        ["要確認事項", issues.length, num(line, /要確認事項 (\d+) 件/)],
+        ["うち業務（両方を含む）", issues.filter(r => r.v["種別"] !== "開発").length, num(line, /業務 (\d+)/)],
+        ["うち開発（両方を含む）", issues.filter(r => r.v["種別"] !== "業務").length, num(line, /開発 (\d+)/)],
+        [AI_RULE, rows.length - issues.length, num(line, /AI が補った業務の決まり (\d+)/) ?? 0],
+      ];
+    },
+  },
+  {
+    sheet: "確認一覧", kind: "区分", ask: "確かめてほしいこと", where: "どこのことか", sub: false,
+    edit: ["確認結果", "回答"],
+    more: ["資料・開発環境の記載", "関係する AC"],
+    filters: rows => [...new Set(rows.map(r => r.v["区分"]))].map(k => [k, r => r.v["区分"] === k]),
+    // 表紙の「この資料」の行：区分ごとに「<区分> <n> 件」
+    check: (rows, cover) => {
+      const line = cover.find(t => / \d+ 件・/.test(t)) || "";
+      const want = {};
+      for (const part of line.slice(line.lastIndexOf("。") + 1).split("・")) {
+        const m = part.match(/^(.*) (\d+) 件$/);
+        if (m) want[m[1]] = +m[2];
+      }
+      const kinds = [...new Set([...Object.keys(want), ...rows.map(r => r.v["区分"])])];
+      return [["表紙の件数（合計）", rows.length, Object.values(want).reduce((a, b) => a + b, 0)],
+        ...kinds.map(k => [k, rows.filter(r => r.v["区分"] === k).length, want[k] ?? 0])];
+    },
+  },
+];
+
+let book = null;   // { zip, name, lay, sheets, heads, rows, units, choices, cover, headStyle }
+let cur = 0, filter = "すべて";
+
+// ---------- zip（xlsx の入れ物）。外の部品を使わず、ブラウザの機能だけで読み書きする ----------
+const CRC = new Uint32Array(256).map((_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+function crc32(bytes) { let c = 0xFFFFFFFF; for (const b of bytes) c = CRC[(c ^ b) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+async function pipe(bytes, stream) { return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer()); }
+
+function unzip(buf) {
+  const u8 = new Uint8Array(buf), dv = new DataView(buf);
+  let eocd = u8.length - 22;
+  while (eocd >= 0 && dv.getUint32(eocd, true) !== 0x06054b50) eocd--;
+  if (eocd < 0) throw new Error("xlsx として読めませんでした");
+  const count = dv.getUint16(eocd + 10, true);
+  let p = dv.getUint32(eocd + 16, true);
+  const entries = [];
+  for (let i = 0; i < count; i++) {
+    const nameLen = dv.getUint16(p + 28, true), extraLen = dv.getUint16(p + 30, true), commentLen = dv.getUint16(p + 32, true);
+    const e = {
+      method: dv.getUint16(p + 10, true), time: dv.getUint16(p + 12, true), date: dv.getUint16(p + 14, true),
+      crc: dv.getUint32(p + 16, true), csize: dv.getUint32(p + 20, true), usize: dv.getUint32(p + 24, true),
+      name: new TextDecoder().decode(u8.subarray(p + 46, p + 46 + nameLen)),
+    };
+    const local = dv.getUint32(p + 42, true);
+    const start = local + 30 + dv.getUint16(local + 26, true) + dv.getUint16(local + 28, true);
+    e.data = u8.slice(start, start + e.csize);
+    entries.push(e);
+    p += 46 + nameLen + extraLen + commentLen;
+  }
+  return entries;
+}
+
+async function entryText(e) {
+  if (e.method === 0) return new TextDecoder().decode(e.data);
+  if (e.method === 8) return new TextDecoder().decode(await pipe(e.data, new DecompressionStream("deflate-raw")));
+  throw new Error(`読めない圧縮の形です（${e.name}）`);
+}
+
+async function setEntryText(e, text) {
+  const raw = new TextEncoder().encode(text);
+  e.crc = crc32(raw); e.usize = raw.length; e.method = 8;
+  e.data = await pipe(raw, new CompressionStream("deflate-raw")); e.csize = e.data.length;
+}
+
+function zip(entries) {
+  const parts = [], central = [];
+  let offset = 0;
+  const put = (dv, fields) => fields.forEach(([o, v, n]) => n === 4 ? dv.setUint32(o, v, true) : dv.setUint16(o, v, true));
+  for (const e of entries) {
+    const name = new TextEncoder().encode(e.name), flags = 0x800;  // 名前は UTF-8。データ記述子は使わない
+    const head = new DataView(new ArrayBuffer(30));
+    put(head, [[0, 0x04034b50, 4], [4, 20, 2], [6, flags, 2], [8, e.method, 2], [10, e.time, 2], [12, e.date, 2],
+      [14, e.crc, 4], [18, e.csize, 4], [22, e.usize, 4], [26, name.length, 2], [28, 0, 2]]);
+    const cd = new DataView(new ArrayBuffer(46));
+    put(cd, [[0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [8, flags, 2], [10, e.method, 2], [12, e.time, 2], [14, e.date, 2],
+      [16, e.crc, 4], [20, e.csize, 4], [24, e.usize, 4], [28, name.length, 2], [30, 0, 2], [32, 0, 2], [34, 0, 2], [36, 0, 2], [38, 0, 4], [42, offset, 4]]);
+    parts.push(head, name, e.data);
+    central.push(cd, name);
+    offset += 30 + name.length + e.data.length;
+  }
+  const size = central.reduce((n, x) => n + x.byteLength, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  put(end, [[0, 0x06054b50, 4], [8, entries.length, 2], [10, entries.length, 2], [12, size, 4], [16, offset, 4]]);
+  return new Blob([...parts, ...central, end], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+}
+
+// ---------- xlsx を読む ----------
+function colOf(ref) { return ref.replace(/\d+/g, ""); }
+function rowOf(ref) { return +ref.replace(/\D+/g, ""); }
+function colIndex(col) { return [...col].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0); }
+function colName(n) { let s = ""; for (; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + (n - 1) % 26) + s; return s; }
+
+// 文字の要素の中身。Excel が付ける読み仮名（rPh）は除く
+function plain(node) {
+  return [...node.getElementsByTagNameNS(NS, "t")].filter(x => x.parentNode.localName !== "rPh").map(x => x.textContent).join("");
+}
+
+function cellText(c, shared) {
+  const t = c.getAttribute("t");
+  if (t === "inlineStr") return plain(c);
+  const v = c.getElementsByTagNameNS(NS, "v")[0];
+  if (!v) return "";
+  if (t === "s") return shared[+v.textContent] ?? "";
+  return v.textContent;
+}
+
+// 「1.〜」「2.〜」の番号付きの文を { head: 番号より前の文, items: {番号: 文} } にする。番号の無い続きの行は前の番号に足す
+function numbered(text) {
+  const items = {}, head = [];
+  let n = null;
+  for (const line of (text || "").split("\n")) {
+    const m = line.match(/^\s*(\d+)[.．]\s*(.*)$/);
+    if (m) { n = +m[1]; items[n] = m[2]; }
+    else if (n !== null) items[n] += "\n" + line;
+    else if (line.trim()) head.push(line);
+  }
+  return { head: head.join("\n"), items };
+}
+
+// 確認内容を文ごとに分けて小問にする（文を分けるだけで、言い換えも省きもしない）
+function sentences(text) {
+  return (text || "").split(/(?<=[。？?])/).map(s => s.trim()).filter(Boolean);
+}
+
+// 小問。元の文（raw）を持ち、答えを変えていない小問は元の文のまま書き戻す
+function makeSubs(row) {
+  const v = row.v, given = numbered(v["要約"]).items;
+  const nums = Object.keys(given).map(Number).sort((a, b) => a - b);
+  const qs = nums.length ? nums.map(n => given[n]) : sentences(v["確認内容"]);
+  row.ans = numbered(v["要約への回答"]); row.held = numbered(v["検討事項"]); row.notes = numbered(v["認識合わせ"]);
+  row.noteHead = row.notes.head;   // 番号の無い認識合わせ（「・」で書いたものなど）は、要確認事項ごとに1つ。書き換えない
+  const advice = adviceAnswer(v["AI のおすすめ"]);
+  return qs.map((q, i) => {
+    const raw = row.ans.items[i + 1] ?? "";
+    const text = raw.replace(HOLD, "").trim();
+    const heldText = row.held.items[i + 1] ?? null, confirmText = row.notes.items[i + 1] ?? null;
+    // 押したボタン：advice（おすすめどおり）／hold（持ち帰り）／confirm（業務に確かめる）／""（備考だけ）
+    const kind = raw.includes(HOLD) || heldText !== null ? "hold" : confirmText !== null ? "confirm"
+      : advice && text === advice ? "advice" : text ? "fixed" : "";
+    const memo = kind === "advice" ? "" : text;
+    // saved：決定した答え（保存するのはこれ）。kind・memo は今カードに入っているもの
+    // edit：書き戻す内容を手で直したもの（{answer, held, confirm}。無ければ自動で作る）
+    return { q, kind, memo, edit: {}, heldText, confirmText, saved: { kind, memo, edit: {} }, decided: !!(kind || memo) };
+  });
+}
+
+// ボタン。おすすめどおりは、おすすめの無い問いでは押せない。決まったは、備考に答えを書く
+const KINDS = [["advice", "おすすめどおり"], ["fixed", "決まった（備考に書く）"], ["hold", "持ち帰り（検討事項）"], ["confirm", "業務に確かめる（認識合わせ）"]];
+
+async function readBook(buf, name) {
+  const entries = unzip(buf);
+  const entry = p => entries.find(e => e.name === p);
+  const parse = async p => new DOMParser().parseFromString(await entryText(entry(p)), "application/xml");
+  const wb = await parse("xl/workbook.xml");
+  const rels = await parse("xl/_rels/workbook.xml.rels");
+  const target = {};
+  for (const r of rels.getElementsByTagName("Relationship")) target[r.getAttribute("Id")] = r.getAttribute("Target");
+  let shared = [];
+  if (entry("xl/sharedStrings.xml")) {
+    const ss = await parse("xl/sharedStrings.xml");
+    shared = [...ss.getElementsByTagNameNS(NS, "si")].map(plain);
+  }
+  const sheets = {};
+  for (const s of wb.getElementsByTagNameNS(NS, "sheet")) {
+    const rid = s.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id");
+    const path = "xl/" + target[rid].replace(/^\/?xl\//, "");
+    sheets[s.getAttribute("name")] = { path, doc: await parse(path) };
+  }
+  const lay = LAYOUTS.find(l => sheets[l.sheet]);
+  if (!lay) throw new Error("「要確認事項」か「確認一覧」のシートがありません。受け入れ基準と要確認事項か、確認一覧の xlsx を選んでください");
+  const doc = sheets[lay.sheet].doc;
+
+  const grid = d => {
+    const out = {}, style = {};
+    for (const c of d.getElementsByTagNameNS(NS, "c")) {
+      const ref = c.getAttribute("r");
+      (out[rowOf(ref)] ??= {})[colOf(ref)] = cellText(c, shared);
+      (style[rowOf(ref)] ??= {})[colOf(ref)] = c.getAttribute("s");
+    }
+    return { out, style };
+  };
+  const { out: g, style } = grid(doc);
+  const heads = {};
+  for (const [col, v] of Object.entries(g[1] || {})) if (v) heads[v] = col;
+  for (const h of ["No.", lay.kind, lay.ask]) if (!heads[h]) throw new Error(`「${h}」の列がありません`);
+  // 書く列が無ければ、右の端に足す（見出しは最後の見出しと同じ書式にする）
+  const lastCol = Math.max(...Object.values(heads).map(colIndex));
+  const added = [];
+  for (const h of lay.edit) if (!heads[h]) { heads[h] = colName(lastCol + added.length + 1); added.push(h); }
+  const bodyCol = colName(lastCol);
+  const rows = Object.keys(g).map(Number).filter(r => r > 1 && g[r][heads["No."]]).sort((a, b) => a - b).map(r => {
+    const v = {};
+    for (const [h, col] of Object.entries(heads)) v[h] = g[r][col] ?? "";
+    const row = { r, v, orig: Object.fromEntries(lay.edit.map(h => [h, v[h]])), style: style[r][bodyCol] };
+    if (lay.sub) { row.subs = makeSubs(row); row.start = subValues(row); }
+    else { row.saved = { "確認結果": v["確認結果"], "回答": v["回答"] }; row.decided = !!(v["確認結果"] || v["回答"].trim()); }
+    return row;
+  });
+  const units = lay.sub ? rows.flatMap(row => row.subs.map((s, k) => ({ row, k }))) : rows.map(row => ({ row, k: null }));
+
+  // 確認結果の選択肢（入力規則のとおり）
+  let choices = [];
+  for (const dv of doc.getElementsByTagNameNS(NS, "dataValidation")) {
+    if (heads["確認結果"] && dv.getAttribute("sqref").startsWith(heads["確認結果"])) {
+      const f = dv.getElementsByTagNameNS(NS, "formula1")[0];
+      if (f) choices = f.textContent.replace(/^"|"$/g, "").split(",");
+    }
+  }
+  const cover = sheets[COVER] ? Object.values(grid(sheets[COVER].doc).out).flatMap(r => Object.values(r)) : [];
+  return { zip: entries, name, lay, sheets, heads, rows, units, choices, cover, added, headStyle: style[1][colName(lastCol)] };
+}
+
+// ---------- 答えを列の値にする ----------
+// おすすめの答えの部分。末尾の理由の括弧（「…（本文が…）」）を外す。答えの中の括弧は残す
+function adviceAnswer(text) {
+  const t = (text || "").trim().replace(/。$/, "");
+  if (!t.endsWith("）")) return t;
+  let depth = 0;
+  for (let i = t.length - 1; i >= 0; i--) {
+    if (t[i] === "）") depth++;
+    else if (t[i] === "（" && --depth === 0) return i > 0 ? t.slice(0, i) : t;
+  }
+  return t;
+}
+
+// 小問1つが、要約への回答・検討事項・認識合わせのそれぞれに書く文（書かないなら null）
+function subLines(row, x) {
+  const auto = autoLines(row, x), out = {};
+  // 手で直したものがあれば、それを使う（その列に書く場合だけ）
+  for (const k of Object.keys(auto)) out[k] = auto[k] !== null && x.edit[k] !== undefined ? x.edit[k] : auto[k];
+  return out;
+}
+
+function autoLines(row, x) {
+  const memo = x.memo.trim(), advice = adviceAnswer(row.v["AI のおすすめ"]);
+  return {
+    answer: x.kind === "advice" ? advice + (memo ? `（${memo}）` : "")
+      : x.kind === "hold" ? memo + HOLD          // 向こうの書き方に合わせて「→検討事項」を付ける
+      : memo || null,
+    held: x.kind === "hold" ? x.heldText ?? x.q : null,
+    confirm: x.kind === "confirm" ? x.confirmText ?? (memo || x.q) : null,
+  };
+}
+
+// 小問の決定した答えから4列の値を作る。それぞれの列に「n.〜」で書く（書きかけは入れない）
+function subValues(row) {
+  const s = row.subs.map(x => ({ ...x, ...x.saved }));
+  const join = (head, items, pick) => {
+    const out = head ? [head] : [];
+    s.forEach((x, i) => { const t = pick(x); if (t !== null && t !== "") out.push(`${i + 1}.${t}`); });
+    for (const [n, t] of Object.entries(items)) if (+n > s.length) out.push(`${n}.${t}`);   // 小問より大きい番号は元のまま
+    return out.join("\n");
+  };
+  const any = s.some(x => x.kind || x.memo.trim());
+  return {
+    "要約": s.map((x, i) => `${i + 1}.${x.q}`).join("\n"),
+    "要約への回答": join(row.ans.head, row.ans.items, x => subLines(row, x).answer),
+    "検討事項": join(row.held.head, row.held.items, x => subLines(row, x).held),
+    "認識合わせ": join(row.noteHead, row.notes.items, x => subLines(row, x).confirm),
+    any,
+  };
+}
+
+function rowValues(row) {
+  if (!book.lay.sub) return { ...row.saved };
+  const now = subValues(row), out = {};
+  for (const h of book.lay.edit) {
+    // 読み込んだときと同じなら、元のセルのまま（書き方の細かい違いで書き換えない）
+    out[h] = now[h] === row.start[h] ? row.orig[h] : now[h];
+  }
+  // 要約は、元に書いてあれば書き換えない。元が空なら、何か答えたときだけ書く
+  out["要約"] = row.orig["要約"] || (now.any ? now["要約"] : "");
+  return out;
+}
+
+function changes() {
+  const out = [];
+  for (const row of book.rows) {
+    if (book.lay.sub && !row.touched) continue;
+    const now = rowValues(row);
+    for (const h of book.lay.edit) if (now[h] !== row.orig[h]) out.push([row, h, now[h]]);
+  }
+  return out;
+}
+
+// ---------- xlsx に戻す（書く列のセルだけを書き換える） ----------
+function setCell(doc, ref, text, style) {
+  const sheetData = doc.getElementsByTagNameNS(NS, "sheetData")[0];
+  const r = rowOf(ref);
+  const row = [...sheetData.getElementsByTagNameNS(NS, "row")].find(x => +x.getAttribute("r") === r);
+  if (!row) throw new Error(`行 ${r} が見つかりません`);
+  let c = [...row.getElementsByTagNameNS(NS, "c")].find(x => x.getAttribute("r") === ref);
+  if (!c) {
+    c = doc.createElementNS(NS, "c");
+    c.setAttribute("r", ref);
+    if (style) c.setAttribute("s", style);
+    const after = [...row.getElementsByTagNameNS(NS, "c")].find(x => colIndex(colOf(x.getAttribute("r"))) > colIndex(colOf(ref)));
+    row.insertBefore(c, after || null);
+    row.removeAttribute("spans");
+  }
+  while (c.firstChild) c.removeChild(c.firstChild);
+  if (text === "") { c.setAttribute("t", "n"); return; }
+  c.setAttribute("t", "inlineStr");
+  const is = doc.createElementNS(NS, "is"), t = doc.createElementNS(NS, "t");
+  t.setAttribute("xml:space", "preserve");
+  t.textContent = text;
+  is.appendChild(t); c.appendChild(is);
+}
+
+async function writeBook() {
+  const sh = book.sheets[book.lay.sheet];
+  if (book.added.length) {
+    // 足した列：見出し・列の幅・表の範囲
+    for (const h of book.added) setCell(sh.doc, book.heads[h] + 1, h, book.headStyle);
+    const d = sh.doc, last = colName(Math.max(...Object.values(book.heads).map(colIndex)));
+    let cols = d.getElementsByTagNameNS(NS, "cols")[0];
+    if (!cols) { cols = d.createElementNS(NS, "cols"); d.documentElement.insertBefore(cols, d.getElementsByTagNameNS(NS, "sheetData")[0]); }
+    for (const h of book.added) {
+      const c = d.createElementNS(NS, "col"), n = colIndex(book.heads[h]);
+      c.setAttribute("min", n); c.setAttribute("max", n); c.setAttribute("width", "40"); c.setAttribute("customWidth", "1");
+      cols.appendChild(c);
+    }
+    const dim = d.getElementsByTagNameNS(NS, "dimension")[0];
+    if (dim) dim.setAttribute("ref", dim.getAttribute("ref").replace(/:[A-Z]+(\d+)$/, `:${last}$1`));
+  }
+  for (const [row, h, text] of changes()) setCell(sh.doc, book.heads[h] + row.r, text, row.style);
+  await setEntryText(book.zip.find(e => e.name === sh.path), new XMLSerializer().serializeToString(sh.doc));
+  return zip(book.zip);
+}
+
+// ---------- 画面 ----------
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+
+// 1枚（小問か、確認一覧の1行）の、決定の印・決定した答え・今カードに入っているものがあるか
+const item = u => u.k === null ? u.row : u.row.subs[u.k];
+const savedKind = u => u.k === null ? "" : item(u).saved.kind;
+function hasInput(u) {
+  return u.k === null ? !!(u.row.v["確認結果"] || u.row.v["回答"].trim()) : !!(item(u).kind || item(u).memo.trim());
+}
+
+// 決定できるか：ボタンか備考が入っていて、「決まった」なら備考に答えがある
+function canDecide(u) {
+  if (u.k === null) return hasInput(u);
+  const s = item(u);
+  return s.kind === "fixed" ? s.memo.trim() !== "" : hasInput(u);
+}
+
+// 一覧の印：決定済み（持ち帰りは別の色）／書きかけ／未回答
+function state(u) {
+  if (item(u).decided) return savedKind(u) === "hold" ? "hold" : "done";
+  return hasInput(u) ? "draft" : "";
+}
+
+function decide(i) {
+  const u = book.units[i], it = item(u);
+  if (u.k === null) it.saved = { "確認結果": it.v["確認結果"], "回答": it.v["回答"] };
+  else { it.saved = { kind: it.kind, memo: it.memo, edit: { ...it.edit } }; u.row.touched = true; }
+  it.decided = true;
+  // 次の、まだ決めていない1枚へ（無ければ今の1枚のまま。完了を出す）
+  const n = book.units.length;
+  for (let d = 1; d < n; d++) { const j = (i + d) % n; if (!item(book.units[j]).decided) return go(j); }
+  refresh();
+}
+
+function redo(i) {   // 決め直す：決定した答えをカードに戻して、書き換えられるようにする
+  const u = book.units[i], it = item(u);
+  if (u.k === null) Object.assign(it.v, it.saved); else Object.assign(it, it.saved, { edit: { ...it.saved.edit } });
+  it.decided = false;
+  refresh();
+}
+
+function filters() {
+  const lay = book.lay.filters(book.rows).map(([k, p]) => [k, u => p(u.row)]);
+  const sub = book.lay.sub ? [["検討事項", u => item(u).decided && savedKind(u) === "hold"], ["認識合わせ", u => item(u).decided && savedKind(u) === "confirm"]] : [];
+  return [["すべて", () => true], ["未回答", u => !item(u).decided], ["書きかけ", u => state(u) === "draft"], ...sub, ...lay];
+}
+
+function visible() {
+  const pass = (filters().find(([k]) => k === filter) || filters()[0])[1];
+  return book.units.map((u, i) => [u, i]).filter(([u]) => pass(u));
+}
+
+function counts() {
+  const us = book.units, dec = us.filter(u => item(u).decided);
+  return {
+    n: us.length, done: dec.length, drafts: us.filter(u => state(u) === "draft").length,
+    hold: dec.filter(u => savedKind(u) === "hold").length, notes: dec.filter(u => savedKind(u) === "confirm").length,
+    advice: dec.filter(u => savedKind(u) === "advice").length,
+  };
+}
+
+function renderCheck() {
+  const lines = book.lay.check(book.rows, book.cover);
+  const ok = lines.every(([, got, want]) => got === want);
+  const { n, done, hold, notes, drafts } = counts();
+  const rowsDone = book.lay.sub ? book.rows.filter(r => r.subs.every(s => s.decided)).length : done;
+  $("check").innerHTML =
+    `<div class="row"><span>読み込んだ行（シート「${esc(book.lay.sheet)}」）</span><b>${book.rows.length} 件</b></div>` +
+    `<div class="row"><span>件数（読み込んだ行 / 表紙）</span><span></span></div>` +
+    lines.map(([k, got, want]) => `<div class="row"><span>${esc(k)}</span><span class="${got === want ? "" : "bad"}">${got} / ${want ?? "表紙に無い"}</span></div>`).join("") +
+    `<div class="row"><span>表紙と合っているか</span><span class="${ok ? "good" : "bad"}">${ok ? "合っている" : "合っていない"}</span></div><hr>` +
+    (book.lay.sub
+      ? `<div class="row"><span>小問</span><b>${n} 問</b></div>` +
+        `<div class="row"><span>決定した小問</span><b>${done} / ${n}</b></div>` +
+        `<div class="row"><span>書きかけ（保存されない）</span><b class="${drafts ? "bad" : ""}">${drafts}</b></div>` +
+        `<div class="row"><span>　うち検討事項</span><b>${hold}</b></div>` +
+        `<div class="row"><span>　うち認識合わせ</span><b>${notes}</b></div>` +
+        `<div class="row"><span>番号の無い認識合わせ（要確認事項ごと）</span><b>${book.rows.filter(r => r.noteHead.trim()).length}</b></div>` +
+        `<div class="row"><span>小問を全部決定した行</span><b>${rowsDone} / ${book.rows.length}</b></div>`
+      : `<div class="row"><span>決定した行</span><b>${done} / ${n}</b></div>` +
+        `<div class="row"><span>書きかけ（保存されない）</span><b class="${drafts ? "bad" : ""}">${drafts}</b></div>`);
+  $("progress").textContent = `決定 ${done} / ${n}`;
+  $("filters").innerHTML = filters().map(([k]) => `<button data-f="${esc(k)}" class="${k === filter ? "on" : ""}">${esc(k)}</button>`).join("");
+}
+
+function label(u) {
+  const row = u.row, item = row.v["項目"];
+  const text = u.k === null ? (item && !item.startsWith(row.v[book.lay.kind]) ? item : row.v[book.lay.ask]) : row.subs[u.k].q;
+  return text.length > 34 ? text.slice(0, 34) + "…" : text;
+}
+
+function renderList() {
+  $("list").innerHTML = visible().map(([u, i]) =>
+    `<div class="item ${i === cur ? "cur" : ""}" data-i="${i}"><span class="mark ${state(u)}"></span>` +
+    `<span><span class="no">${esc(u.row.v["No."])}${u.k === null ? "" : "　" + (u.k + 1) + "/" + u.row.subs.length}</span><br>${esc(label(u))}</span></div>`).join("");
+  const el = $("list").querySelector(".cur");
+  if (el) el.scrollIntoView({ block: "nearest" });
+}
+
+function renderCard() {
+  const u = book.units[cur], row = u.row, v = row.v, lay = book.lay;
+  const extra = lay.more.filter(h => v[h] && v[h] !== "－");
+  const fromSentences = lay.sub && !row.orig["要約"];
+  const it = item(u), locked = it.decided, c = counts();
+  let html = "";
+  if (c.done === c.n) {
+    html += `<div class="box advice" id="complete"><b>全部決定しました</b>` +
+      `${c.n} ${lay.sub ? "問" : "行"}のうち` + (lay.sub ? `、おすすめどおり ${c.advice}・持ち帰り ${c.hold}・業務に確かめる ${c.notes}・そのほか ${c.n - c.advice - c.hold - c.notes}` : ` ${c.n} 件`) +
+      `\n<button class="primary" id="saveDone">答えを入れた xlsx を保存</button></div>`;
+  }
+  html +=
+    `<div class="meta"><span>${esc(v["No."])}</span><span class="chip">${esc(v[lay.kind])}</span><span>${cur + 1} / ${book.units.length}</span>` +
+    `<span class="chip">${locked ? "決定済み" : hasInput(u) ? "書きかけ" : "未回答"}</span></div>` +
+    `<h2>${esc(v["項目"])}${v[lay.where] ? "（" + esc(v[lay.where]) + "）" : ""}</h2>`;
+  if (u.k === null) {
+    html += `<p class="ask">${esc(v[lay.ask])}</p>`;
+  } else {
+    html += `<p class="ask">${u.k + 1}. ${esc(row.subs[u.k].q)}</p>`;
+    if (row.subs.length > 1) html += `<ol class="subs">${row.subs.map((s, k) => `<li class="${k === u.k ? "cur" : ""}">${k + 1}. ${esc(s.q)}</li>`).join("")}</ol>`;
+    html += `<details><summary>確認内容（もとの問い${fromSentences ? "。小問は、これを文ごとに分けたもの" : ""}）</summary><div class="box">${esc(v[lay.ask])}</div></details>`;
+  }
+  html +=
+    (v["AI のおすすめ"] ? `<div class="box advice"><b>AI のおすすめ</b>${esc(v["AI のおすすめ"])}</div>` : "") +
+    (v["確かめ方"] ? `<div class="box"><b>確かめ方</b>${esc(v["確かめ方"])}</div>` : "") +
+    extra.map(h => `<details><summary>${esc(h)}</summary><div class="box">${esc(v[h])}</div></details>`).join("");
+  if (u.k === null) {
+    html += `<div class="answer"><label>確認結果</label><div class="results">` +
+      book.choices.map(ch => `<button data-r="${esc(ch)}" class="${v["確認結果"] === ch ? "on" : ""}" ${locked ? "disabled" : ""}>${esc(ch)}</button>`).join("") +
+      `</div>` +
+      `<label>回答</label><textarea id="ans" ${locked ? "readonly" : ""}></textarea></div>`;
+  } else {
+    const s = row.subs[u.k];
+    html += `<div class="answer"><div class="results">` +
+      KINDS.filter(([k]) => k !== "advice" || v["AI のおすすめ"])   // おすすめの無い問いには、おすすめどおりを出さない
+        .map(([k, name]) => `<button data-kind="${k}" class="${s.kind === k ? "on" : ""}" ${locked ? "disabled" : ""}>${esc(name)}</button>`).join("") +
+      `</div>` +
+      (s.kind === "advice" ? `<div class="box advice"><b>回答</b>${esc(adviceAnswer(v["AI のおすすめ"]))}</div>` : "") +
+      `<label>備考</label><textarea id="memo" ${locked ? "readonly" : ""}></textarea>` +
+      (row.noteHead ? `<div class="box"><b>この要確認事項に、番号を付けずに書いてある認識合わせ（そのまま残します）</b>${esc(row.noteHead)}</div>` : "") +
+      `<div class="box" id="preview"></div>` +
+      `<p class="hint">決定した答えだけを、小問の番号を付けて、要約への回答・検討事項・認識合わせの列に書きます。ほかの列は変えません。</p></div>`;
+  }
+  const shown = visible().map(([, i]) => i), at = shown.indexOf(cur);
+  html += `<div class="nav"><button id="prev" ${at === 0 ? "disabled" : ""}>← 前へ</button>` +
+    (locked ? `<button id="redo">決め直す</button>` : `<button class="primary" id="decide" ${canDecide(u) ? "" : "disabled"}>決定して次へ</button>`) +
+    `<button id="next" ${at === shown.length - 1 ? "disabled" : ""}>次へ →</button></div>` +
+    `<p class="hint" style="text-align:center">キーボードの ← → か、カードの上でホイールを回しても送れます</p>`;
+  $("card").innerHTML = html;
+  // 文字は value で入れる（HTML として読ませない）
+  if (u.k === null) {
+    $("ans").value = v["回答"];
+    $("ans").addEventListener("input", e => { v["回答"] = e.target.value; inputChanged(); });
+  } else {
+    const s = row.subs[u.k];
+    $("memo").value = s.memo;
+    $("memo").addEventListener("input", e => { s.memo = e.target.value; renderPreview(); inputChanged(); });
+    renderPreview();
+  }
+}
+
+// 打っている間：決定のボタンを押せるかと、左の一覧を直す
+function inputChanged() {
+  const d = $("decide");
+  if (d) d.disabled = !canDecide(book.units[cur]);
+  refreshSide();
+}
+
+// この小問で、どの列に何を書くか
+// 書き戻す内容。列ごとの欄で、手で直せる（直したら、ボタンや備考を変えてもそのまま）
+const COLS = [["answer", "要約への回答"], ["held", "検討事項"], ["confirm", "認識合わせ"]];
+function renderPreview() {
+  const u = book.units[cur], s = u.row.subs[u.k], lines = subLines(u.row, s), n = u.k + 1, locked = s.decided;
+  const out = COLS.filter(([k]) => lines[k] !== null);
+  $("preview").innerHTML = `<b>決定すると書き戻す内容（${n}. を付けて書きます。直せます）</b>` + (out.length
+    ? out.map(([k, h]) => `<label>${esc(h)}${s.edit[k] !== undefined && !locked ? ` <button class="reset" data-reset="${k}">自動に戻す</button>` : ""}</label>` +
+        `<textarea class="ed" data-ed="${k}" rows="2" ${locked ? "readonly" : ""}></textarea>`).join("")
+    : "（まだ何も書きません）");
+  for (const el of $("preview").querySelectorAll("[data-ed]")) {
+    const k = el.dataset.ed;
+    el.value = lines[k];
+    el.addEventListener("input", e => {
+      const had = s.edit[k] !== undefined;
+      s.edit[k] = e.target.value; inputChanged();
+      if (!had) renderPreview(), $("preview").querySelector(`[data-ed="${k}"]`).focus();   // 「自動に戻す」を出す
+    });
+  }
+}
+
+let sideTimer = null;
+function refreshSide() {   // 打っている間は、左の一覧を少し待ってから作り直す
+  clearTimeout(sideTimer);
+  sideTimer = setTimeout(() => refresh(false), 300);
+}
+
+// ---------- 控え：カードで入れたものを、このブラウザの中にだけ残す（読み込み直しても戻せるように） ----------
+const draftKey = () => `確認一覧カード｜${book.name}｜${book.lay.sheet}`;
+
+function snapshot() {
+  const out = {};
+  for (const u of book.units) {
+    const it = item(u);
+    if (u.k === null) out[u.row.v["No."]] = { q: u.row.v[book.lay.ask], r: it.v["確認結果"], a: it.v["回答"], decided: it.decided, saved: it.saved };
+    else out[`${u.row.v["No."]}｜${u.k}`] = { q: it.q, kind: it.kind, memo: it.memo, edit: it.edit, decided: it.decided, saved: it.saved };
+  }
+  return out;
+}
+
+function saveDraft() {
+  try { localStorage.setItem(draftKey(), JSON.stringify({ at: new Date().toLocaleString("ja-JP"), items: snapshot() })); } catch (e) { /* 控えられなくても、ページは動く */ }
+}
+
+// 同じ xlsx（名前とシートが同じ）の控えがあり、今の中身と違えば、戻すかを訊く
+function restoreDraft() {
+  let stored;
+  try { stored = JSON.parse(localStorage.getItem(draftKey()) || "null"); } catch (e) { return; }
+  if (!stored) return;
+  const now = snapshot(), back = [];
+  for (const u of book.units) {
+    const key = u.k === null ? u.row.v["No."] : `${u.row.v["No."]}｜${u.k}`, s = stored.items[key];
+    if (s && s.q === now[key].q && JSON.stringify(s) !== JSON.stringify(now[key])) back.push([u, s]);
+  }
+  if (!back.length) return;
+  const dec = back.filter(([, s]) => s.decided).length;
+  if (!confirm(`前回（${stored.at}）にこのファイルで入れたものが残っています（${back.length} 件。うち決定 ${dec}・書きかけ ${back.length - dec}）。\n続きから始めますか？\n（「キャンセル」なら、xlsx に書いてあるとおりで始めます）`)) return;
+  for (const [u, s] of back) {
+    const it = item(u);
+    if (u.k === null) Object.assign(it.v, { "確認結果": s.r, "回答": s.a });
+    else { it.kind = s.kind; it.memo = s.memo; it.edit = s.edit || {}; u.row.touched = true; }
+    it.decided = s.decided; it.saved = s.saved;
+    if (u.k !== null) it.saved.edit ||= {};
+  }
+}
+
+function refresh(card = true) {
+  renderCheck(); renderList(); if (card) renderCard();
+  saveDraft();
+  const n = changes().length + (book.added.length && changes().length ? book.added.length : 0);
+  $("dirty").textContent = n ? `保存していない書き換え ${n} セル` : "";
+  $("save").disabled = n === 0;
+}
+
+function go(i) { cur = Math.max(0, Math.min(book.units.length - 1, i)); refresh(); }
+
+function status(text, bad = false) { $("status").textContent = text; $("status").style.color = bad ? "var(--warn)" : "var(--sub)"; }
+
+async function openFile(file) {
+  try {
+    status(`${file.name} を読んでいます…（ファイルを開く）`);
+    const buf = await file.arrayBuffer();
+    status(`${file.name} を読んでいます…（中の表を読む）`);
+    book = await readBook(buf, file.name);
+    restoreDraft();
+    cur = Math.max(0, book.units.findIndex(u => !item(u).decided)); filter = "すべて";
+    $("fname").textContent = file.name;
+    $("drop").style.display = "none";
+    $("main").classList.add("on");
+    refresh();
+  } catch (e) {
+    status(`読み込めませんでした：${e.message || e}`, true);
+  }
+}
+if (!("DecompressionStream" in window)) status("このブラウザでは動きません。新しい Edge か Chrome で開いてください。", true);
+else status("動いています。xlsx を選んでください。");
+
+$("pick").addEventListener("change", e => e.target.files[0] && openFile(e.target.files[0]));
+const drop = $("drop");
+drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); e.dataTransfer.files[0] && openFile(e.dataTransfer.files[0]); });
+$("filters").addEventListener("click", e => {
+  if (e.target.dataset.f === undefined) return;
+  filter = e.target.dataset.f;
+  const shown = visible();
+  if (shown.length && !shown.some(([, i]) => i === cur)) cur = shown[0][1];
+  refresh();
+});
+$("list").addEventListener("click", e => { const it = e.target.closest(".item"); if (it) go(+it.dataset.i); });
+$("card").addEventListener("click", e => {
+  if (e.target.dataset.r !== undefined) {   // もう一度押すと外す
+    const v = book.units[cur].row.v, r = e.target.dataset.r;
+    v["確認結果"] = v["確認結果"] === r ? "" : r; refresh();
+  }
+  if (e.target.dataset.kind !== undefined) {   // もう一度押すと外す
+    const u = book.units[cur], s = u.row.subs[u.k], k = e.target.dataset.kind;
+    s.kind = s.kind === k ? "" : k; refresh();
+  }
+  if (e.target.dataset.reset !== undefined) {   // 書き戻す内容を、ボタンと備考から作るのに戻す
+    const u = book.units[cur];
+    delete u.row.subs[u.k].edit[e.target.dataset.reset]; renderPreview(); inputChanged();
+  }
+  if (e.target.id === "decide") decide(cur);
+  if (e.target.id === "redo") redo(cur);
+  if (e.target.id === "saveDone") $("save").click();
+  if (e.target.id === "prev") step(-1);
+  if (e.target.id === "next") step(1);
+});
+
+// 前・次のカードへ（左の一覧で絞っていれば、その中で）
+function step(d) {
+  const shown = visible().map(([, i]) => i);
+  if (!shown.length) return;
+  const at = shown.indexOf(cur);
+  const to = at < 0 ? shown[0] : shown[at + d];
+  if (to === undefined) return;
+  go(to);
+  // 送ったカードの頭から読めるように（続けてホイールを回しても、次々には送られない）
+  const top = $("card").getBoundingClientRect().top + window.scrollY - 8;
+  if (window.scrollY > top) window.scrollTo(0, top);
+}
+
+// 矢印：← → で前・次。↑ ↓ は、ページをそれ以上その向きに動かせないときだけ前・次
+// ホイール：カードの上で、ページの端まで来ていたら前・次（1回の操作で1枚）
+const typing = el => el && (el.tagName === "TEXTAREA" || el.tagName === "INPUT");
+const atTop = () => window.scrollY <= 0;
+const atBottom = () => window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+document.addEventListener("keydown", e => {
+  if (!book || typing(document.activeElement) || e.ctrlKey || e.altKey || e.metaKey) return;
+  const d = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: atTop() ? -1 : 0, ArrowDown: atBottom() ? 1 : 0 }[e.key];
+  if (d) { e.preventDefault(); step(d); }
+});
+let wheelAt = 0;
+$("card").addEventListener("wheel", e => {
+  if (typing(e.target) || Math.abs(e.deltaY) < 10) return;
+  const d = e.deltaY > 0 ? (atBottom() ? 1 : 0) : (atTop() ? -1 : 0);
+  if (!d) return;
+  e.preventDefault();
+  if (Date.now() - wheelAt < 400) return;
+  wheelAt = Date.now();
+  step(d);
+}, { passive: false });
+$("save").addEventListener("click", async () => {
+  const ch = changes();
+  const blob = await writeBook();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = book.name; a.click();
+  for (const [row, h, text] of ch) row.orig[h] = text;
+  book.added = [];
+  refresh(false);
+  const drafts = counts().drafts;
+  alert(`決定した答えで ${ch.length} セルを書き換えて保存しました（${book.lay.edit.join("・")} の列だけ）。ほかのセルは元のままです。` +
+    (drafts ? `\n書きかけの ${drafts} 件は、決定していないので保存していません。` : ""));
+});
+window.addEventListener("beforeunload", e => { if (book && (changes().length || counts().drafts)) e.preventDefault(); });
+</script>
+</body>
+</html>
