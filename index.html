@@ -69,6 +69,9 @@ summary { cursor: pointer; color: var(--sub); font-size: 13px; }
 textarea { width: 100%; min-height: 90px; font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
 textarea.ed { min-height: 48px; }
 #preview { white-space: normal; }
+#notice:empty { display: none; }
+#notice { max-width: 1280px; margin: 12px auto 0; padding: 10px 16px; border: 1px solid var(--accent); border-radius: 8px; background: var(--accent-soft); white-space: pre-wrap; }
+#notice button { margin: 8px 8px 0 0; }
 button.reset { padding: 0 8px; font-size: 12px; margin-left: 6px; }
 .nav { display: flex; justify-content: space-between; margin-top: 16px; }
 .changed { color: var(--warn); font-size: 12px; }
@@ -89,9 +92,11 @@ button.reset { padding: 0 8px; font-size: 12px; margin-left: 6px; }
 <div id="drop">
   <p><b>受け入れ基準と要確認事項か、確認一覧の xlsx を、ここに置くか選んでください</b></p>
   <p>ファイルはこのパソコンの中だけで読みます（どこにも送りません）</p>
-  <p><input type="file" id="pick" accept=".xlsx"></p>
+  <p><label for="pick">xlsx ファイルを選ぶ</label> <input type="file" id="pick" accept=".xlsx" aria-label="xlsx ファイルを選ぶ"></p>
   <p id="status" style="color: var(--warn); font-weight: bold;">このページは今、動いていません。エクスプローラーでこのファイルをダブルクリックし、Edge か Chrome で開いてください（Claude のアプリの中では動きません）。</p>
 </div>
+
+<div id="notice" role="status" aria-live="polite"></div>
 
 <main id="main">
   <aside>
@@ -562,7 +567,7 @@ function renderCheck() {
         `<div class="row"><span>　うち保留</span><b>${hold}</b></div>` +
         `<div class="row"><span>　うちお客様に確認</span><b>${ask}</b></div>`);
   $("progress").textContent = `決定 ${done} / ${n}`;
-  $("filters").innerHTML = filters().map(([k]) => `<button data-f="${esc(k)}" class="${k === filter ? "on" : ""}">${esc(k)}</button>`).join("");
+  $("filters").innerHTML = filters().map(([k]) => `<button data-f="${esc(k)}" class="${k === filter ? "on" : ""}" aria-pressed="${k === filter}">${esc(k)}</button>`).join("");
 }
 
 function label(u) {
@@ -573,7 +578,7 @@ function label(u) {
 
 function renderList() {
   $("list").innerHTML = visible().map(([u, i]) =>
-    `<div class="item ${i === cur ? "cur" : ""}" data-i="${i}"><span class="mark ${state(u)}"></span>` +
+    `<div class="item ${i === cur ? "cur" : ""}" data-i="${i}" role="button" tabindex="0" aria-current="${i === cur}" aria-label="${esc(u.row.v["No."])}${u.k === null ? "" : " " + (u.k + 1) + "/" + u.row.subs.length}（${{ done: "決定済み", hold: "保留", draft: "書きかけ", "": "未回答" }[state(u)]}）"><span class="mark ${state(u)}"></span>` +
     `<span><span class="no">${esc(u.row.v["No."])}${u.k === null ? "" : "　" + (u.k + 1) + "/" + u.row.subs.length}</span><br>${esc(label(u))}</span></div>`).join("");
   const el = $("list").querySelector(".cur");
   if (el) el.scrollIntoView({ block: "nearest" });
@@ -608,13 +613,13 @@ function renderCard() {
   const k = nowKind(u), ro = locked ? "readonly" : "";
   html += `<div class="answer"><div class="results">` +
     KINDS.filter(([key]) => key !== "advice" || v["AI のおすすめ"])   // おすすめの無い問いには、おすすめどおりを出さない
-      .map(([key, name]) => `<button data-kind="${key}" class="${k === key ? "on" : ""}" ${locked ? "disabled" : ""}>${esc(name)}</button>`).join("") +
+      .map(([key, name]) => `<button data-kind="${key}" class="${k === key ? "on" : ""}" aria-pressed="${k === key}" ${locked ? "disabled" : ""}>${esc(name)}</button>`).join("") +
     `</div>` +
     (k === "confirm" ? `<div class="box">前に「業務に確かめる」にした小問です（認識合わせの列に残します）</div>` : "") +
     (k === "advice" ? `<div class="box advice"><b>回答</b>${esc(adviceAnswer(v["AI のおすすめ"]))}</div>` : "") +
-    (k === "answer" ? `<label>回答</label><textarea id="ans" ${ro}></textarea>` : "") +
-    (k === "ask" ? `<label>起票する質問の文（直せます）</label><textarea id="qa" rows="4" ${ro}></textarea>` : "") +
-    `<label>備考</label><textarea id="memo" ${ro}></textarea>` +
+    (k === "answer" ? `<label for="ans">回答</label><textarea id="ans" ${ro}></textarea>` : "") +
+    (k === "ask" ? `<label for="qa">起票する質問の文（直せます）</label><textarea id="qa" rows="4" ${ro}></textarea>` : "") +
+    `<label for="memo">備考</label><textarea id="memo" ${ro}></textarea>` +
     (u.k !== null && row.noteHead ? `<div class="box"><b>この要確認事項に、番号を付けずに書いてある認識合わせ（そのまま残します）</b>${esc(row.noteHead)}</div>` : "") +
     (u.k !== null ? `<div class="box" id="preview"></div>` : "") +
     `<p class="hint">${u.k !== null ? "決定した答えだけを、小問の番号を付けて書きます。" : "決定した答えだけを、確認結果・回答・備考・QA起票文の列に書きます。"}ほかの列は変えません。</p></div>`;
@@ -651,7 +656,7 @@ function renderPreview() {
   const out = COLS.filter(([k]) => lines[k] !== null);
   $("preview").innerHTML = `<b>決定すると書き戻す内容（${n}. を付けて書きます。直せます）</b>` + (out.length
     ? out.map(([k, h]) => `<label>${esc(h)}${s.edit[k] !== undefined && !locked ? ` <button class="reset" data-reset="${k}">自動に戻す</button>` : ""}</label>` +
-        `<textarea class="ed" data-ed="${k}" rows="2" ${locked ? "readonly" : ""}></textarea>`).join("")
+        `<textarea class="ed" data-ed="${k}" rows="2" aria-label="書き戻す内容：${esc(h)}" ${locked ? "readonly" : ""}></textarea>`).join("")
     : "（まだ何も書きません）");
   for (const el of $("preview").querySelectorAll("[data-ed]")) {
     const k = el.dataset.ed;
@@ -687,7 +692,13 @@ function saveDraft() {
   try { localStorage.setItem(draftKey(), JSON.stringify({ at: new Date().toLocaleString("ja-JP"), items: snapshot() })); } catch (e) { /* 控えられなくても、ページは動く */ }
 }
 
-// 同じ xlsx（名前とシートが同じ）の控えがあり、今の中身と違えば、戻すかを訊く
+// 知らせの欄に文（とボタン）を出す。buttons：[[id, 文字, 押したとき]]
+function notice(text, buttons = []) {
+  $("notice").innerHTML = esc(text) + (buttons.length ? "<br>" + buttons.map(([id, name]) => `<button id="${id}">${esc(name)}</button>`).join("") : "");
+  for (const [id, , fn] of buttons) $(id).addEventListener("click", () => { $("notice").textContent = ""; fn(); });
+}
+
+// 同じ xlsx（名前とシートが同じ）の控えがあり、今の中身と違えば、戻すかを訊く（知らせの欄のボタンで）
 function restoreDraft() {
   let stored;
   try { stored = JSON.parse(localStorage.getItem(draftKey()) || "null"); } catch (e) { return; }
@@ -699,7 +710,11 @@ function restoreDraft() {
   }
   if (!back.length) return;
   const dec = back.filter(([, s]) => s.decided).length;
-  if (!confirm(`前回（${stored.at}）にこのファイルで入れたものが残っています（${back.length} 件。うち決定 ${dec}・書きかけ ${back.length - dec}）。\n続きから始めますか？\n（「キャンセル」なら、xlsx に書いてあるとおりで始めます）`)) return;
+  notice(`前回（${stored.at}）にこのファイルで入れたものが残っています（${back.length} 件。うち決定 ${dec}・書きかけ ${back.length - dec}）。続きから始めますか？`,
+    [["restoreYes", "続きから始める", () => { applyDraft(back); refresh(); }], ["restoreNo", "xlsx に書いてあるとおりで始める", () => {}]]);
+}
+
+function applyDraft(back) {
   for (const [u, s] of back) {
     const it = item(u);
     if (u.k === null) Object.assign(it.v, s.now || { "確認結果": s.r, "回答": s.a });
@@ -754,6 +769,7 @@ $("filters").addEventListener("click", e => {
   refresh();
 });
 $("list").addEventListener("click", e => { const it = e.target.closest(".item"); if (it) go(+it.dataset.i); });
+$("list").addEventListener("keydown", e => { const it = e.target.closest(".item"); if (it && e.key === "Enter") go(+it.dataset.i); });
 $("card").addEventListener("click", e => {
   if (e.target.dataset.kind !== undefined) {   // もう一度押すと外す
     const u = book.units[cur], k = e.target.dataset.kind, off = nowKind(u) === k;
@@ -814,7 +830,7 @@ $("save").addEventListener("click", async () => {
   book.added = [];
   refresh(false);
   const drafts = counts().drafts;
-  alert(`決定した答えで ${ch.length} セルを書き換えて保存しました（${book.lay.edit.join("・")} の列だけ）。ほかのセルは元のままです。` +
+  notice(`決定した答えで ${ch.length} セルを書き換えて保存しました（${book.lay.edit.join("・")} の列だけ）。ほかのセルは元のままです。` +
     (drafts ? `\n書きかけの ${drafts} 件は、決定していないので保存していません。` : ""));
 });
 // ---------- 起票分（QA表に貼る行）----------
@@ -867,9 +883,9 @@ $("qaout").addEventListener("click", async () => {
   const { blob, file } = await qaBook(rows);
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = file; a.click();
-  alert(`「${QA_ASK}」にして決定した ${rows.length} 件を、QA表の列の並びで ${file} に出しました。元の一覧の行はそのまま残ります。`);
+  notice(`「${QA_ASK}」にして決定した ${rows.length} 件を、QA表の列の並びで ${file} に出しました。元の一覧の行はそのまま残ります。`);
 });
-window.addEventListener("beforeunload", e => { if (book && (changes().length || counts().drafts)) e.preventDefault(); });
+// ページを離れるときの「このサイトを離れますか」は出さない（AI がブラウザを操作するときに止まるため）。書きかけはこのブラウザの控えに残り、開き直すと戻せる
 </script>
 </body>
 </html>
