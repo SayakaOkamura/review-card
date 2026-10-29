@@ -113,6 +113,8 @@ button.reset { padding: 0 8px; font-size: 12px; margin-left: 6px; }
 const NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
 const COVER = "表紙";
 const AI_RULE = "AI が補った業務の決まり";
+// 要確認事項のシートに入る、業務に確かめてもらう指摘事項（確認一覧と同じ No. の行）
+const FINDING_KINDS = ["資料の食い違い", "資料の書き漏れ"];
 const HOLD = "→検討事項";
 const num = (text, re) => { const m = text.match(re); return m ? +m[1] : null; };
 
@@ -124,17 +126,21 @@ const LAYOUTS = [
   {
     sheet: "要確認事項", kind: "種別", ask: "確認内容", where: "理由", sub: true,
     edit: ["要約", "要約への回答", "検討事項", "認識合わせ", "QAに起票", "不要", "備考"],
-    more: ["共通の問い", "機能要件詳細の記載", "テーブル定義・現行・開発環境の記載", "関係する受け入れ基準"],
-    filters: () => [["業務の分", r => r.v["種別"] !== "開発"], ["開発の分", r => r.v["種別"] !== "業務"]],
-    // 表紙の「件数」の行：要確認事項 n 件（業務 a・開発 b。両方は両方に数える）・…・AI が補った業務の決まり c
+    more: ["確認の分け方", "共通の問い", "機能要件詳細の記載", "テーブル定義・現行・開発環境の記載", "関係する受け入れ基準"],
+    // 業務・開発の分、資料の指摘事項、確認の分け方（ある機能だけ）で絞れる
+    filters: rows => [["業務の分", r => r.v["種別"] !== "開発"], ["開発の分", r => r.v["種別"] !== "業務"],
+      ...FINDING_KINDS.filter(k => rows.some(r => r.v["理由"] === k)).map(k => [k, r => r.v["理由"] === k]),
+      ...[...new Set(rows.map(r => r.v["確認の分け方"]).filter(Boolean))].map(k => [k, r => r.v["確認の分け方"] === k])],
+    // 表紙の「件数」の行：要確認事項 n 件（業務 a・開発 b。両方は両方に数える）・…・AI が補った業務の決まり c・資料の食い違い d・資料の書き漏れ e
     check: (rows, cover) => {
       const line = cover.find(t => t.includes("要確認事項") && / 件/.test(t) && t.includes("業務 ")) || "";
-      const issues = rows.filter(r => r.v["理由"] !== AI_RULE);
+      const issues = rows.filter(r => r.v["理由"] !== AI_RULE && !FINDING_KINDS.includes(r.v["理由"]));
       return [
         ["要確認事項", issues.length, num(line, /要確認事項 (\d+) 件/)],
         ["うち業務（両方を含む）", issues.filter(r => r.v["種別"] !== "開発").length, num(line, /業務 (\d+)/)],
         ["うち開発（両方を含む）", issues.filter(r => r.v["種別"] !== "業務").length, num(line, /開発 (\d+)/)],
-        [AI_RULE, rows.length - issues.length, num(line, /AI が補った業務の決まり (\d+)/) ?? 0],
+        [AI_RULE, rows.filter(r => r.v["理由"] === AI_RULE).length, num(line, /AI が補った業務の決まり (\d+)/) ?? 0],
+        ...FINDING_KINDS.map(k => [k, rows.filter(r => r.v["理由"] === k).length, num(line, new RegExp(k + " ([0-9]+)")) ?? 0]),
       ];
     },
   },
