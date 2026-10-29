@@ -82,6 +82,7 @@ button.reset { padding: 0 8px; font-size: 12px; margin-left: 6px; }
   <span class="spacer"></span>
   <b id="progress"></b>
   <span class="changed" id="dirty"></span>
+  <button id="qaout" disabled title="確認結果が「お客様に確認」の行だけを、QA表の列の並びで xlsx にします">起票分を出力</button>
   <button class="primary" id="save" disabled>答えを入れた xlsx を保存</button>
 </header>
 
@@ -134,7 +135,7 @@ const LAYOUTS = [
   {
     sheet: "確認一覧", kind: "区分", ask: "確かめてほしいこと", where: "どこのことか", sub: false,
     edit: ["確認結果", "回答"],
-    more: ["資料・開発環境の記載", "関係する AC"],
+    more: ["QA起票文", "資料・開発環境の記載", "関係する AC"],
     filters: rows => [...new Set(rows.map(r => r.v["区分"]))].map(k => [k, r => r.v["区分"] === k]),
     // 表紙の「この資料」の行：区分ごとに「<区分> <n> 件」
     check: (rows, cover) => {
@@ -701,6 +702,7 @@ function refresh(card = true) {
   const n = changes().length + (book.added.length && changes().length ? book.added.length : 0);
   $("dirty").textContent = n ? `保存していない書き換え ${n} セル` : "";
   $("save").disabled = n === 0;
+  $("qaout").disabled = !qaRows().length;
 }
 
 function go(i) { cur = Math.max(0, Math.min(book.units.length - 1, i)); refresh(); }
@@ -803,6 +805,55 @@ $("save").addEventListener("click", async () => {
   const drafts = counts().drafts;
   alert(`決定した答えで ${ch.length} セルを書き換えて保存しました（${book.lay.edit.join("・")} の列だけ）。ほかのセルは元のままです。` +
     (drafts ? `\n書きかけの ${drafts} 件は、決定していないので保存していません。` : ""));
+});
+// ---------- 起票分（QA表に貼る行）----------
+// 確認結果が「お客様に確認」の行だけを、QA表の列の並び（No・現行機能・対象・質問・確認の内容・BlueMemeの案・参考資料）で出す。No. は QA表で振るので空
+const QA_ASK = "お客様に確認", QA_HEAD = ["No", "現行機能", "対象", "質問・確認の内容", "BlueMemeの案", "参考資料"];
+function qaRows() {
+  return book && book.lay.sheet === "確認一覧" ? book.rows.filter(r => r.v["確認結果"] === QA_ASK) : [];
+}
+// 表紙の「<key>」の右の値（表紙は見出しと値が交互に並ぶ。値が無いときは「－」が入る）
+function coverValue(key) {
+  const i = book.cover.indexOf(key);
+  const v = i < 0 ? "" : String(book.cover[i + 1] ?? "");
+  return v === "－" ? "" : v;
+}
+async function qaBook(rows) {
+  const name = book.name.replace(/_確認一覧_.*$/, "").replace(/\.xlsx$/, "");
+  const current = coverValue("現行機能");
+  const lines = rows.map(r => {
+    const v = r.v;
+    const plan = v["回答"].trim() || adviceAnswer(v["AI のおすすめ"]) || (v["区分"] === "ふつうはこうする" ? v["確かめてほしいこと"] : "");
+    return ["", current, v["項目"], v["QA起票文"] || v["確かめてほしいこと"], plan, `機能要件詳細「${name}」`];
+  });
+  const x = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const cell = (s, c, r, st) => `<c r="${colName(c)}${r}" t="inlineStr" s="${st}"><is><t xml:space="preserve">${x(s)}</t></is></c>`;
+  const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="${NS}">` +
+    `<cols>${[6, 24, 24, 80, 40, 30].map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join("")}</cols><sheetData>` +
+    [QA_HEAD, ...lines].map((cells, i) => `<row r="${i + 1}">${cells.map((s, c) => cell(s, c + 1, i + 1, i ? 1 : 0)).join("")}</row>`).join("") +
+    `</sheetData></worksheet>`;
+  const files = {
+    "[Content_Types].xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`,
+    "_rels/.rels": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
+    "xl/workbook.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="${NS}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="QA起票" sheetId="1" r:id="rId1"/></sheets></workbook>`,
+    "xl/_rels/workbook.xml.rels": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`,
+    "xl/worksheets/sheet1.xml": sheet,
+    "xl/styles.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="${NS}"><fonts count="1"><font><sz val="10"/><name val="Meiryo UI"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`,
+  };
+  const entries = [];
+  for (const [n, text] of Object.entries(files)) {
+    const e = { name: n, time: 0, date: 0x21 };
+    await setEntryText(e, text);
+    entries.push(e);
+  }
+  return { blob: zip(entries), file: `${name}_QA起票.xlsx` };
+}
+$("qaout").addEventListener("click", async () => {
+  const rows = qaRows();
+  const { blob, file } = await qaBook(rows);
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = file; a.click();
+  alert(`確認結果が「${QA_ASK}」の ${rows.length} 行を、QA表の列の並びで ${file} に出しました。確認一覧の行はそのまま残ります。`);
 });
 window.addEventListener("beforeunload", e => { if (book && (changes().length || counts().drafts)) e.preventDefault(); });
 </script>
