@@ -85,7 +85,7 @@ button.reset { padding: 0 8px; font-size: 12px; margin-left: 6px; }
   <span class="spacer"></span>
   <b id="progress"></b>
   <span class="changed" id="dirty"></span>
-  <button id="qaout" disabled title="「お客様に確認」にして決定したものだけを、QA表の列の並びで xlsx にします">起票分を出力</button>
+  <button id="qaout" disabled title="「QAに起票」にして決定したものだけを、QA表の列の並びで xlsx にします">起票分を出力</button>
   <button class="primary" id="save" disabled>答えを入れた xlsx を保存</button>
 </header>
 
@@ -117,13 +117,13 @@ const HOLD = "→検討事項";
 const num = (text, re) => { const m = text.match(re); return m ? +m[1] : null; };
 
 // 読めるシートの形。
-// 要確認事項：1件を番号付きの小問（要約）に分け、小問ごとに答える。書くのは 要約・要約への回答・検討事項・お客様に確認・不要・備考 の列
+// 要確認事項：1件を番号付きの小問（要約）に分け、小問ごとに答える。書くのは 要約・要約への回答・検討事項・QAに起票・不要・備考 の列
 //   （認識合わせは、前に書いたものを読んでそのまま残すだけ）
 // 確認一覧：1行ごとに 確認結果・回答・備考・QA起票文 を書く
 const LAYOUTS = [
   {
     sheet: "要確認事項", kind: "種別", ask: "確認内容", where: "理由", sub: true,
-    edit: ["要約", "要約への回答", "検討事項", "認識合わせ", "お客様に確認", "不要", "備考"],
+    edit: ["要約", "要約への回答", "検討事項", "認識合わせ", "QAに起票", "不要", "備考"],
     more: ["共通の問い", "機能要件詳細の記載", "テーブル定義・現行・開発環境の記載", "関係する受け入れ基準"],
     filters: () => [["業務の分", r => r.v["種別"] !== "開発"], ["開発の分", r => r.v["種別"] !== "業務"]],
     // 表紙の「件数」の行：要確認事項 n 件（業務 a・開発 b。両方は両方に数える）・…・AI が補った業務の決まり c
@@ -268,7 +268,8 @@ function makeSubs(row) {
   const nums = Object.keys(given).map(Number).sort((a, b) => a - b);
   const qs = nums.length ? nums.map(n => given[n]) : sentences(v["確認内容"]);
   row.ans = numbered(v["要約への回答"]); row.held = numbered(v["検討事項"]); row.notes = numbered(v["認識合わせ"]);
-  row.asks = numbered(v["お客様に確認"]); row.nones = numbered(v["不要"]); row.memos = numbered(v["備考"]);
+  row.asks = numbered(v["QAに起票"] || v["お客様に確認"]);   // 前の名前の列も読む
+  row.nones = numbered(v["不要"]); row.memos = numbered(v["備考"]);
   row.noteHead = row.notes.head;   // 番号の無い認識合わせ（「・」で書いたものなど）は、要確認事項ごとに1つ。書き換えない
   const advice = adviceAnswer(v["AI のおすすめ"]);
   return qs.map((q, i) => {
@@ -276,7 +277,7 @@ function makeSubs(row) {
     const text = raw.replace(HOLD, "").trim();
     const heldText = row.held.items[n] ?? null, confirmText = row.notes.items[n] ?? null;
     const askText = row.asks.items[n] ?? null, noneText = row.nones.items[n] ?? null;
-    // 押したボタン：advice（おすすめどおり）／answer（回答を書く）／ask（お客様に確認）／hold（保留）／none（不要）
+    // 押したボタン：advice（おすすめどおり）／answer（回答を書く）／ask（QAに起票）／hold（保留）／none（不要）
     // confirm は前の作りで「業務に確かめる」にしたもの（ボタンはもう出さない。読んだまま残す）
     const kind = askText !== null ? "ask" : noneText !== null ? "none" : raw.includes(HOLD) || heldText !== null ? "hold"
       : confirmText !== null ? "confirm" : advice && text === advice ? "advice" : text ? "answer" : "";
@@ -288,10 +289,10 @@ function makeSubs(row) {
 }
 
 // ボタン（両方のカードで同じ）。おすすめどおりは、おすすめの無い問いには出さない。回答を書くは、回答の欄に答えが要る
-const KINDS = [["advice", "おすすめどおり"], ["answer", "回答を書く"], ["ask", "お客様に確認"], ["hold", "保留"], ["none", "不要"]];
+const KINDS = [["advice", "おすすめどおり"], ["answer", "回答を書く"], ["ask", "QAに起票"], ["hold", "保留"], ["none", "不要"]];
 // 確認一覧の確認結果に書く値（前の作りの値も読めるようにする）
-const RESULT_OF = { advice: "妥当", answer: "回答", ask: "お客様に確認", hold: "保留", none: "不要" };
-const KIND_OF = { "妥当": "advice", "回答": "answer", "違う": "answer", "お客様に確認": "ask", "保留": "hold", "持ち帰り": "hold", "不要": "none" };
+const RESULT_OF = { advice: "妥当", answer: "回答", ask: "QAに起票", hold: "保留", none: "不要" };
+const KIND_OF = { "妥当": "advice", "回答": "answer", "違う": "answer", "QAに起票": "ask", "お客様に確認": "ask", "保留": "hold", "持ち帰り": "hold", "不要": "none" };
 
 async function readBook(buf, name) {
   const entries = unzip(buf);
@@ -407,7 +408,7 @@ function subValues(row) {
     "要約への回答": join(row.ans.head, row.ans.items, x => subLines(row, x).answer),
     "検討事項": join(row.held.head, row.held.items, x => subLines(row, x).held),
     "認識合わせ": join(row.noteHead, row.notes.items, x => subLines(row, x).confirm),
-    "お客様に確認": join(row.asks.head, row.asks.items, x => subLines(row, x).ask),
+    "QAに起票": join(row.asks.head, row.asks.items, x => subLines(row, x).ask),
     "不要": join(row.nones.head, row.nones.items, x => subLines(row, x).none),
     "備考": join(row.memos.head, row.memos.items, x => subLines(row, x).memo),
     any,
@@ -527,7 +528,7 @@ function redo(i) {   // 決め直す：決定した答えをカードに戻し�
 
 function filters() {
   const lay = book.lay.filters(book.rows).map(([k, p]) => [k, u => p(u.row)]);
-  const sub = [["保留", u => item(u).decided && savedKind(u) === "hold"], ["お客様に確認", u => item(u).decided && savedKind(u) === "ask"]];
+  const sub = [["保留", u => item(u).decided && savedKind(u) === "hold"], ["QAに起票", u => item(u).decided && savedKind(u) === "ask"]];
   return [["すべて", () => true], ["未回答", u => !item(u).decided], ["書きかけ", u => state(u) === "draft"], ...sub, ...lay];
 }
 
@@ -560,12 +561,12 @@ function renderCheck() {
         `<div class="row"><span>決定した小問</span><b>${done} / ${n}</b></div>` +
         `<div class="row"><span>書きかけ（保存されない）</span><b class="${drafts ? "bad" : ""}">${drafts}</b></div>` +
         `<div class="row"><span>　うち保留</span><b>${hold}</b></div>` +
-        `<div class="row"><span>　うちお客様に確認</span><b>${ask}</b></div>` +
+        `<div class="row"><span>　うちQAに起票</span><b>${ask}</b></div>` +
         `<div class="row"><span>小問を全部決定した行</span><b>${rowsDone} / ${book.rows.length}</b></div>`
       : `<div class="row"><span>決定した行</span><b>${done} / ${n}</b></div>` +
         `<div class="row"><span>書きかけ（保存されない）</span><b class="${drafts ? "bad" : ""}">${drafts}</b></div>` +
         `<div class="row"><span>　うち保留</span><b>${hold}</b></div>` +
-        `<div class="row"><span>　うちお客様に確認</span><b>${ask}</b></div>`);
+        `<div class="row"><span>　うちQAに起票</span><b>${ask}</b></div>`);
   $("progress").textContent = `決定 ${done} / ${n}`;
   $("filters").innerHTML = filters().map(([k]) => `<button data-f="${esc(k)}" class="${k === filter ? "on" : ""}" aria-pressed="${k === filter}">${esc(k)}</button>`).join("");
 }
@@ -592,7 +593,7 @@ function renderCard() {
   let html = "";
   if (c.done === c.n) {
     html += `<div class="box advice" id="complete"><b>全部決定しました</b>` +
-      `${c.n} ${lay.sub ? "問" : "行"}のうち、おすすめどおり ${c.advice}・お客様に確認 ${c.ask}・保留 ${c.hold}・そのほか ${c.n - c.advice - c.ask - c.hold}` +
+      `${c.n} ${lay.sub ? "問" : "行"}のうち、おすすめどおり ${c.advice}・QAに起票 ${c.ask}・保留 ${c.hold}・そのほか ${c.n - c.advice - c.ask - c.hold}` +
       `\n<button class="primary" id="saveDone">答えを入れた xlsx を保存</button></div>`;
   }
   html +=
@@ -650,7 +651,7 @@ function inputChanged() {
 
 // この小問で、どの列に何を書くか
 // 書き戻す内容。列ごとの欄で、手で直せる（直したら、ボタンや備考を変えてもそのまま）
-const COLS = [["answer", "要約への回答"], ["held", "検討事項"], ["confirm", "認識合わせ"], ["ask", "お客様に確認"], ["none", "不要"], ["memo", "備考"]];
+const COLS = [["answer", "要約への回答"], ["held", "検討事項"], ["confirm", "認識合わせ"], ["ask", "QAに起票"], ["none", "不要"], ["memo", "備考"]];
 function renderPreview() {
   const u = book.units[cur], s = u.row.subs[u.k], lines = subLines(u.row, s), n = u.k + 1, locked = s.decided;
   const out = COLS.filter(([k]) => lines[k] !== null);
@@ -834,9 +835,9 @@ $("save").addEventListener("click", async () => {
     (drafts ? `\n書きかけの ${drafts} 件は、決定していないので保存していません。` : ""));
 });
 // ---------- 起票分（QA表に貼る行）----------
-// 「お客様に確認」にして決定したものだけを、QA表の列の並び（No・現行機能・対象・質問・確認の内容・BlueMemeの案・参考資料）で出す。No. は QA表で振るので空
-const QA_ASK = "お客様に確認", QA_HEAD = ["No", "現行機能", "対象", "質問・確認の内容", "BlueMemeの案", "参考資料"];
-// 決定して「お客様に確認」にしたもの。[対象, 質問の文, 案]
+// 「QAに起票」にして決定したものだけを、QA表の列の並び（No・現行機能・対象・質問・確認の内容・BlueMemeの案・参考資料）で出す。No. は QA表で振るので空
+const QA_ASK = "QAに起票", QA_HEAD = ["No", "現行機能", "対象", "質問・確認の内容", "BlueMemeの案", "参考資料"];
+// 決定して「QAに起票」にしたもの。[対象, 質問の文, 案]
 function qaRows() {
   if (!book) return [];
   return book.units.filter(u => item(u).decided && savedKind(u) === "ask").map(u => {
