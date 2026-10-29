@@ -836,7 +836,11 @@ $("save").addEventListener("click", async () => {
 });
 // ---------- 起票分（QA表に貼る行）----------
 // 「QAに起票」にして決定したものだけを、QA表の列の並び（No・現行機能・対象・質問・確認の内容・BlueMemeの案・参考資料）で出す。No. は QA表で振るので空
-const QA_ASK = "QAに起票", QA_HEAD = ["No", "現行機能", "対象", "質問・確認の内容", "BlueMemeの案", "参考資料"];
+const QA_ASK = "QAに起票";
+// QA表の形：B 列から、表題（1〜3 行）・見出し（5 行）・行（6 行から）。黄色の欄（回答・回答者・回答日・ステータス）はお客様が書く
+const QA_HEAD = ["No", "現行機能", "対象", "質問・確認の内容", "BlueMemeの案", "参考資料", "回答", "回答者", "回答日", "ステータス"];
+const QA_YELLOW = 6;   // QA_HEAD のこの番号から右が黄色の欄
+const QA_TITLE = ["詳細仕様QA表（起票分）", "作成：BlueMeme", "黄色の欄（回答・回答者・回答日・ステータス）にご記入ください。当社の案でよければ、回答欄に「案のとおり」とだけ書いていただけますと幸いです。"];
 // 決定して「QAに起票」にしたもの。[対象, 質問の文, 案]
 function qaRows() {
   if (!book) return [];
@@ -856,20 +860,39 @@ function coverValue(key) {
 async function qaBook(rows) {
   const name = book.name.replace(/_(確認一覧|受け入れ基準と要確認事項)_.*$/, "").replace(/\.xlsx$/, "");
   const current = coverValue("現行機能");
-  const lines = rows.map(([target, question, plan]) => ["", current, target, question, plan, `機能要件詳細「${name}」`]);
+  const lines = rows.map(([target, question, plan]) => ["", current, target, question, plan, `機能要件詳細「${name}」`, "", "", "", ""]);
   const x = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  // 書式の番号（styles.xml の cellXfs の順）：1 表題、2 見出し、3 黄色の見出し、4 行、5 黄色の行、6 表題の下の文
   const cell = (s, c, r, st) => `<c r="${colName(c)}${r}" t="inlineStr" s="${st}"><is><t xml:space="preserve">${x(s)}</t></is></c>`;
+  const row = (r, cells, st, yst) => `<row r="${r}">${cells.map((s, c) => cell(s, c + 2, r, c >= QA_YELLOW ? yst : st)).join("")}</row>`;
+  const last = 5 + lines.length;
   const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="${NS}">` +
-    `<cols>${[6, 24, 24, 80, 40, 30].map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join("")}</cols><sheetData>` +
-    [QA_HEAD, ...lines].map((cells, i) => `<row r="${i + 1}">${cells.map((s, c) => cell(s, c + 1, i + 1, i ? 1 : 0)).join("")}</row>`).join("") +
-    `</sheetData></worksheet>`;
+    `<sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane ySplit="5" topLeftCell="A6" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>` +
+    `<cols>${[2, 5, 18, 18, 64, 40, 24, 30, 10, 10, 10].map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join("")}</cols><sheetData>` +
+    QA_TITLE.map((s, i) => `<row r="${i + 1}">${cell(s, 2, i + 1, i ? 6 : 1)}</row>`).join("") +
+    row(5, QA_HEAD, 2, 3) + lines.map((cells, i) => row(6 + i, cells, 4, 5)).join("") +
+    `</sheetData><autoFilter ref="B5:${colName(1 + QA_HEAD.length)}${Math.max(last, 6)}"/></worksheet>`;
   const files = {
     "[Content_Types].xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`,
     "_rels/.rels": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
-    "xl/workbook.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="${NS}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="QA起票" sheetId="1" r:id="rId1"/></sheets></workbook>`,
+    "xl/workbook.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="${NS}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="QA一覧" sheetId="1" r:id="rId1"/></sheets>` +
+      `<definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">'QA一覧'!$B$5:$${colName(1 + QA_HEAD.length)}$${Math.max(last, 6)}</definedName></definedNames></workbook>`,
     "xl/_rels/workbook.xml.rels": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`,
     "xl/worksheets/sheet1.xml": sheet,
-    "xl/styles.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="${NS}"><fonts count="1"><font><sz val="10"/><name val="Meiryo UI"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`,
+    "xl/styles.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="${NS}">` +
+      `<fonts count="3"><font><sz val="10"/><name val="Meiryo UI"/></font><font><b/><sz val="14"/><name val="Meiryo UI"/></font><font><b/><sz val="10"/><name val="Meiryo UI"/></font></fonts>` +
+      `<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>` +
+      `<fill><patternFill patternType="solid"><fgColor rgb="FFD9D9D9"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFF00"/><bgColor indexed="64"/></patternFill></fill></fills>` +
+      `<borders count="2"><border/><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/><diagonal/></border></borders>` +
+      `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="7">` +
+      `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>` +
+      `<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>` +
+      `<xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>` +
+      `<xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>` +
+      `<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` +
+      `<xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` +
+      `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>` +
+      `</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`,
   };
   const entries = [];
   for (const [n, text] of Object.entries(files)) {
