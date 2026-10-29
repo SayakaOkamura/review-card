@@ -82,7 +82,7 @@ button.reset { padding: 0 8px; font-size: 12px; margin-left: 6px; }
   <span class="spacer"></span>
   <b id="progress"></b>
   <span class="changed" id="dirty"></span>
-  <button id="qaout" disabled title="確認結果が「お客様に確認」の行だけを、QA表の列の並びで xlsx にします">起票分を出力</button>
+  <button id="qaout" disabled title="「お客様に確認」にして決定したものだけを、QA表の列の並びで xlsx にします">起票分を出力</button>
   <button class="primary" id="save" disabled>答えを入れた xlsx を保存</button>
 </header>
 
@@ -112,12 +112,13 @@ const HOLD = "→検討事項";
 const num = (text, re) => { const m = text.match(re); return m ? +m[1] : null; };
 
 // 読めるシートの形。
-// 要確認事項：1件を番号付きの小問（要約）に分け、小問ごとに答える。書くのは 要約・要約への回答・検討事項・認識合わせ の4列
-// 確認一覧：1行ごとに 確認結果・回答 を書く
+// 要確認事項：1件を番号付きの小問（要約）に分け、小問ごとに答える。書くのは 要約・要約への回答・検討事項・お客様に確認・不要・備考 の列
+//   （認識合わせは、前に書いたものを読んでそのまま残すだけ）
+// 確認一覧：1行ごとに 確認結果・回答・備考・QA起票文 を書く
 const LAYOUTS = [
   {
     sheet: "要確認事項", kind: "種別", ask: "確認内容", where: "理由", sub: true,
-    edit: ["要約", "要約への回答", "検討事項", "認識合わせ"],
+    edit: ["要約", "要約への回答", "検討事項", "認識合わせ", "お客様に確認", "不要", "備考"],
     more: ["共通の問い", "機能要件詳細の記載", "テーブル定義・現行・開発環境の記載", "関係する受け入れ基準"],
     filters: () => [["業務の分", r => r.v["種別"] !== "開発"], ["開発の分", r => r.v["種別"] !== "業務"]],
     // 表紙の「件数」の行：要確認事項 n 件（業務 a・開発 b。両方は両方に数える）・…・AI が補った業務の決まり c
@@ -134,8 +135,8 @@ const LAYOUTS = [
   },
   {
     sheet: "確認一覧", kind: "区分", ask: "確かめてほしいこと", where: "どこのことか", sub: false,
-    edit: ["確認結果", "回答"],
-    more: ["QA起票文", "資料・開発環境の記載", "関係する AC"],
+    edit: ["確認結果", "回答", "備考", "QA起票文"],
+    more: ["資料・開発環境の記載", "関係する AC"],
     filters: rows => [...new Set(rows.map(r => r.v["区分"]))].map(k => [k, r => r.v["区分"] === k]),
     // 表紙の「この資料」の行：区分ごとに「<区分> <n> 件」
     check: (rows, cover) => {
@@ -262,24 +263,30 @@ function makeSubs(row) {
   const nums = Object.keys(given).map(Number).sort((a, b) => a - b);
   const qs = nums.length ? nums.map(n => given[n]) : sentences(v["確認内容"]);
   row.ans = numbered(v["要約への回答"]); row.held = numbered(v["検討事項"]); row.notes = numbered(v["認識合わせ"]);
+  row.asks = numbered(v["お客様に確認"]); row.nones = numbered(v["不要"]); row.memos = numbered(v["備考"]);
   row.noteHead = row.notes.head;   // 番号の無い認識合わせ（「・」で書いたものなど）は、要確認事項ごとに1つ。書き換えない
   const advice = adviceAnswer(v["AI のおすすめ"]);
   return qs.map((q, i) => {
-    const raw = row.ans.items[i + 1] ?? "";
+    const n = i + 1, raw = row.ans.items[n] ?? "";
     const text = raw.replace(HOLD, "").trim();
-    const heldText = row.held.items[i + 1] ?? null, confirmText = row.notes.items[i + 1] ?? null;
-    // 押したボタン：advice（おすすめどおり）／hold（持ち帰り）／confirm（業務に確かめる）／""（備考だけ）
-    const kind = raw.includes(HOLD) || heldText !== null ? "hold" : confirmText !== null ? "confirm"
-      : advice && text === advice ? "advice" : text ? "fixed" : "";
-    const memo = kind === "advice" ? "" : text;
-    // saved：決定した答え（保存するのはこれ）。kind・memo は今カードに入っているもの
-    // edit：書き戻す内容を手で直したもの（{answer, held, confirm}。無ければ自動で作る）
-    return { q, kind, memo, edit: {}, heldText, confirmText, saved: { kind, memo, edit: {} }, decided: !!(kind || memo) };
+    const heldText = row.held.items[n] ?? null, confirmText = row.notes.items[n] ?? null;
+    const askText = row.asks.items[n] ?? null, noneText = row.nones.items[n] ?? null;
+    // 押したボタン：advice（おすすめどおり）／answer（回答を書く）／ask（お客様に確認）／hold（保留）／none（不要）
+    // confirm は前の作りで「業務に確かめる」にしたもの（ボタンはもう出さない。読んだまま残す）
+    const kind = askText !== null ? "ask" : noneText !== null ? "none" : raw.includes(HOLD) || heldText !== null ? "hold"
+      : confirmText !== null ? "confirm" : advice && text === advice ? "advice" : text ? "answer" : "";
+    const answer = kind === "answer" ? text : "", memo = row.memos.items[n] ?? "", qa = askText ?? "";
+    // saved：決定した答え（保存するのはこれ）。kind・answer・memo・qa は今カードに入っているもの
+    // edit：書き戻す内容を手で直したもの（無ければ自動で作る）
+    return { q, kind, answer, memo, qa, edit: {}, heldText, confirmText, saved: { kind, answer, memo, qa, edit: {} }, decided: !!kind };
   });
 }
 
-// ボタン。おすすめどおりは、おすすめの無い問いでは押せない。決まったは、備考に答えを書く
-const KINDS = [["advice", "おすすめどおり"], ["fixed", "決まった（備考に書く）"], ["hold", "持ち帰り（検討事項）"], ["confirm", "業務に確かめる（認識合わせ）"]];
+// ボタン（両方のカードで同じ）。おすすめどおりは、おすすめの無い問いには出さない。回答を書くは、回答の欄に答えが要る
+const KINDS = [["advice", "おすすめどおり"], ["answer", "回答を書く"], ["ask", "お客様に確認"], ["hold", "保留"], ["none", "不要"]];
+// 確認一覧の確認結果に書く値（前の作りの値も読めるようにする）
+const RESULT_OF = { advice: "妥当", answer: "回答", ask: "お客様に確認", hold: "保留", none: "不要" };
+const KIND_OF = { "妥当": "advice", "回答": "answer", "違う": "answer", "お客様に確認": "ask", "保留": "hold", "持ち帰り": "hold", "不要": "none" };
 
 async function readBook(buf, name) {
   const entries = unzip(buf);
@@ -327,7 +334,7 @@ async function readBook(buf, name) {
     for (const [h, col] of Object.entries(heads)) v[h] = g[r][col] ?? "";
     const row = { r, v, orig: Object.fromEntries(lay.edit.map(h => [h, v[h]])), style: style[r][bodyCol] };
     if (lay.sub) { row.subs = makeSubs(row); row.start = subValues(row); }
-    else { row.saved = { "確認結果": v["確認結果"], "回答": v["回答"] }; row.decided = !!(v["確認結果"] || v["回答"].trim()); }
+    else { row.saved = rowSaved(v); row.decided = !!(v["確認結果"] || v["回答"].trim()); }
     return row;
   });
   const units = lay.sub ? rows.flatMap(row => row.subs.map((s, k) => ({ row, k }))) : rows.map(row => ({ row, k: null }));
@@ -366,13 +373,17 @@ function subLines(row, x) {
 }
 
 function autoLines(row, x) {
-  const memo = x.memo.trim(), advice = adviceAnswer(row.v["AI のおすすめ"]);
+  const advice = adviceAnswer(row.v["AI のおすすめ"]);
   return {
-    answer: x.kind === "advice" ? advice + (memo ? `（${memo}）` : "")
-      : x.kind === "hold" ? memo + HOLD          // 向こうの書き方に合わせて「→検討事項」を付ける
-      : memo || null,
+    answer: x.kind === "advice" ? advice
+      : x.kind === "answer" ? x.answer.trim() || null
+      : x.kind === "hold" ? HOLD                 // 向こうの書き方に合わせて「→検討事項」を付ける
+      : null,
     held: x.kind === "hold" ? x.heldText ?? x.q : null,
-    confirm: x.kind === "confirm" ? x.confirmText ?? (memo || x.q) : null,
+    confirm: x.kind === "confirm" ? x.confirmText ?? x.q : null,
+    ask: x.kind === "ask" ? x.qa.trim() || x.q : null,
+    none: x.kind === "none" ? "不要" : null,
+    memo: x.memo.trim() || null,
   };
 }
 
@@ -391,6 +402,9 @@ function subValues(row) {
     "要約への回答": join(row.ans.head, row.ans.items, x => subLines(row, x).answer),
     "検討事項": join(row.held.head, row.held.items, x => subLines(row, x).held),
     "認識合わせ": join(row.noteHead, row.notes.items, x => subLines(row, x).confirm),
+    "お客様に確認": join(row.asks.head, row.asks.items, x => subLines(row, x).ask),
+    "不要": join(row.nones.head, row.nones.items, x => subLines(row, x).none),
+    "備考": join(row.memos.head, row.memos.items, x => subLines(row, x).memo),
     any,
   };
 }
@@ -468,23 +482,21 @@ const esc = s => String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;"
 
 // 1枚（小問か、確認一覧の1行）の、決定の印・決定した答え・今カードに入っているものがあるか
 const item = u => u.k === null ? u.row : u.row.subs[u.k];
-// 確認一覧の行は、確認結果が「持ち帰り」なら持ち帰りの印にする（決定済みには数えるが、色を分ける）
-const savedKind = u => u.k === null ? (u.row.saved["確認結果"] === HOLD_RESULT ? "hold" : "") : item(u).saved.kind;
-// 確認一覧の確認結果のボタンの言い方。xlsx に書くのは選択肢の値のまま
-const HOLD_RESULT = "持ち帰り";
-const RESULT_LABEL = { "妥当": "いい（このとおり）", "違う": "違う（回答に書く）", "不要": "確かめなくてよい", "お客様に確認": "お客様に確認（起票する）", [HOLD_RESULT]: "持ち帰り（回答にメモ）" };
-function hasInput(u) {
-  return u.k === null ? !!(u.row.v["確認結果"] || u.row.v["回答"].trim()) : !!(item(u).kind || item(u).memo.trim());
-}
+// 押したボタン（決定したもの／今カードに入っているもの）。確認一覧の行は確認結果の値から読む
+const savedKind = u => u.k === null ? KIND_OF[u.row.saved["確認結果"]] || "" : item(u).saved.kind;
+const nowKind = u => u.k === null ? KIND_OF[u.row.v["確認結果"]] || "" : item(u).kind;
+const answerOf = u => u.k === null ? u.row.v["回答"] : item(u).answer;
+const memoOf = u => u.k === null ? u.row.v["備考"] : item(u).memo;
+function rowSaved(v) { return { "確認結果": v["確認結果"], "回答": v["回答"], "備考": v["備考"], "QA起票文": v["QA起票文"] }; }
+function hasInput(u) { return !!(nowKind(u) || answerOf(u).trim() || memoOf(u).trim()); }
 
-// 決定できるか：ボタンか備考が入っていて、「決まった」なら備考に答えがある
+// 決定できるか：ボタンを押していて、「回答を書く」なら回答の欄に答えがある
 function canDecide(u) {
-  if (u.k === null) return hasInput(u);
-  const s = item(u);
-  return s.kind === "fixed" ? s.memo.trim() !== "" : hasInput(u);
+  const k = nowKind(u);
+  return !!k && (k !== "answer" || answerOf(u).trim() !== "");
 }
 
-// 一覧の印：決定済み（持ち帰りは別の色）／書きかけ／未回答
+// 一覧の印：決定済み（保留は別の色）／書きかけ／未回答
 function state(u) {
   if (item(u).decided) return savedKind(u) === "hold" ? "hold" : "done";
   return hasInput(u) ? "draft" : "";
@@ -492,8 +504,8 @@ function state(u) {
 
 function decide(i) {
   const u = book.units[i], it = item(u);
-  if (u.k === null) it.saved = { "確認結果": it.v["確認結果"], "回答": it.v["回答"] };
-  else { it.saved = { kind: it.kind, memo: it.memo, edit: { ...it.edit } }; u.row.touched = true; }
+  if (u.k === null) it.saved = rowSaved(it.v);
+  else { it.saved = { kind: it.kind, answer: it.answer, memo: it.memo, qa: it.qa, edit: { ...it.edit } }; u.row.touched = true; }
   it.decided = true;
   // 次の、まだ決めていない1枚へ（無ければ今の1枚のまま。完了を出す）
   const n = book.units.length;
@@ -510,8 +522,7 @@ function redo(i) {   // 決め直す：決定した答えをカードに戻し�
 
 function filters() {
   const lay = book.lay.filters(book.rows).map(([k, p]) => [k, u => p(u.row)]);
-  const sub = book.lay.sub ? [["検討事項", u => item(u).decided && savedKind(u) === "hold"], ["認識合わせ", u => item(u).decided && savedKind(u) === "confirm"]]
-    : [[HOLD_RESULT, u => item(u).decided && savedKind(u) === "hold"]];
+  const sub = [["保留", u => item(u).decided && savedKind(u) === "hold"], ["お客様に確認", u => item(u).decided && savedKind(u) === "ask"]];
   return [["すべて", () => true], ["未回答", u => !item(u).decided], ["書きかけ", u => state(u) === "draft"], ...sub, ...lay];
 }
 
@@ -524,7 +535,7 @@ function counts() {
   const us = book.units, dec = us.filter(u => item(u).decided);
   return {
     n: us.length, done: dec.length, drafts: us.filter(u => state(u) === "draft").length,
-    hold: dec.filter(u => savedKind(u) === "hold").length, notes: dec.filter(u => savedKind(u) === "confirm").length,
+    hold: dec.filter(u => savedKind(u) === "hold").length, ask: dec.filter(u => savedKind(u) === "ask").length,
     advice: dec.filter(u => savedKind(u) === "advice").length,
   };
 }
@@ -532,7 +543,7 @@ function counts() {
 function renderCheck() {
   const lines = book.lay.check(book.rows, book.cover);
   const ok = lines.every(([, got, want]) => got === want);
-  const { n, done, hold, notes, drafts } = counts();
+  const { n, done, hold, ask, drafts } = counts();
   const rowsDone = book.lay.sub ? book.rows.filter(r => r.subs.every(s => s.decided)).length : done;
   $("check").innerHTML =
     `<div class="row"><span>読み込んだ行（シート「${esc(book.lay.sheet)}」）</span><b>${book.rows.length} 件</b></div>` +
@@ -543,12 +554,13 @@ function renderCheck() {
       ? `<div class="row"><span>小問</span><b>${n} 問</b></div>` +
         `<div class="row"><span>決定した小問</span><b>${done} / ${n}</b></div>` +
         `<div class="row"><span>書きかけ（保存されない）</span><b class="${drafts ? "bad" : ""}">${drafts}</b></div>` +
-        `<div class="row"><span>　うち検討事項</span><b>${hold}</b></div>` +
-        `<div class="row"><span>　うち認識合わせ</span><b>${notes}</b></div>` +
-        `<div class="row"><span>番号の無い認識合わせ（要確認事項ごと）</span><b>${book.rows.filter(r => r.noteHead.trim()).length}</b></div>` +
+        `<div class="row"><span>　うち保留</span><b>${hold}</b></div>` +
+        `<div class="row"><span>　うちお客様に確認</span><b>${ask}</b></div>` +
         `<div class="row"><span>小問を全部決定した行</span><b>${rowsDone} / ${book.rows.length}</b></div>`
       : `<div class="row"><span>決定した行</span><b>${done} / ${n}</b></div>` +
-        `<div class="row"><span>書きかけ（保存されない）</span><b class="${drafts ? "bad" : ""}">${drafts}</b></div>`);
+        `<div class="row"><span>書きかけ（保存されない）</span><b class="${drafts ? "bad" : ""}">${drafts}</b></div>` +
+        `<div class="row"><span>　うち保留</span><b>${hold}</b></div>` +
+        `<div class="row"><span>　うちお客様に確認</span><b>${ask}</b></div>`);
   $("progress").textContent = `決定 ${done} / ${n}`;
   $("filters").innerHTML = filters().map(([k]) => `<button data-f="${esc(k)}" class="${k === filter ? "on" : ""}">${esc(k)}</button>`).join("");
 }
@@ -575,7 +587,7 @@ function renderCard() {
   let html = "";
   if (c.done === c.n) {
     html += `<div class="box advice" id="complete"><b>全部決定しました</b>` +
-      `${c.n} ${lay.sub ? "問" : "行"}のうち` + (lay.sub ? `、おすすめどおり ${c.advice}・持ち帰り ${c.hold}・業務に確かめる ${c.notes}・そのほか ${c.n - c.advice - c.hold - c.notes}` : ` ${c.n} 件`) +
+      `${c.n} ${lay.sub ? "問" : "行"}のうち、おすすめどおり ${c.advice}・お客様に確認 ${c.ask}・保留 ${c.hold}・そのほか ${c.n - c.advice - c.ask - c.hold}` +
       `\n<button class="primary" id="saveDone">答えを入れた xlsx を保存</button></div>`;
   }
   html +=
@@ -593,23 +605,19 @@ function renderCard() {
     (v["AI のおすすめ"] ? `<div class="box advice"><b>AI のおすすめ</b>${esc(v["AI のおすすめ"])}</div>` : "") +
     (v["確かめ方"] ? `<div class="box"><b>確かめ方</b>${esc(v["確かめ方"])}</div>` : "") +
     extra.map(h => `<details><summary>${esc(h)}</summary><div class="box">${esc(v[h])}</div></details>`).join("");
-  if (u.k === null) {
-    html += `<div class="answer"><label>確認結果</label><div class="results">` +
-      book.choices.map(ch => `<button data-r="${esc(ch)}" class="${v["確認結果"] === ch ? "on" : ""}" ${locked ? "disabled" : ""}>${esc(RESULT_LABEL[ch] || ch)}</button>`).join("") +
-      `</div>` +
-      `<label>回答</label><textarea id="ans" ${locked ? "readonly" : ""}></textarea></div>`;
-  } else {
-    const s = row.subs[u.k];
-    html += `<div class="answer"><div class="results">` +
-      KINDS.filter(([k]) => k !== "advice" || v["AI のおすすめ"])   // おすすめの無い問いには、おすすめどおりを出さない
-        .map(([k, name]) => `<button data-kind="${k}" class="${s.kind === k ? "on" : ""}" ${locked ? "disabled" : ""}>${esc(name)}</button>`).join("") +
-      `</div>` +
-      (s.kind === "advice" ? `<div class="box advice"><b>回答</b>${esc(adviceAnswer(v["AI のおすすめ"]))}</div>` : "") +
-      `<label>備考</label><textarea id="memo" ${locked ? "readonly" : ""}></textarea>` +
-      (row.noteHead ? `<div class="box"><b>この要確認事項に、番号を付けずに書いてある認識合わせ（そのまま残します）</b>${esc(row.noteHead)}</div>` : "") +
-      `<div class="box" id="preview"></div>` +
-      `<p class="hint">決定した答えだけを、小問の番号を付けて、要約への回答・検討事項・認識合わせの列に書きます。ほかの列は変えません。</p></div>`;
-  }
+  const k = nowKind(u), ro = locked ? "readonly" : "";
+  html += `<div class="answer"><div class="results">` +
+    KINDS.filter(([key]) => key !== "advice" || v["AI のおすすめ"])   // おすすめの無い問いには、おすすめどおりを出さない
+      .map(([key, name]) => `<button data-kind="${key}" class="${k === key ? "on" : ""}" ${locked ? "disabled" : ""}>${esc(name)}</button>`).join("") +
+    `</div>` +
+    (k === "confirm" ? `<div class="box">前に「業務に確かめる」にした小問です（認識合わせの列に残します）</div>` : "") +
+    (k === "advice" ? `<div class="box advice"><b>回答</b>${esc(adviceAnswer(v["AI のおすすめ"]))}</div>` : "") +
+    (k === "answer" ? `<label>回答</label><textarea id="ans" ${ro}></textarea>` : "") +
+    (k === "ask" ? `<label>起票する質問の文（直せます）</label><textarea id="qa" rows="4" ${ro}></textarea>` : "") +
+    `<label>備考</label><textarea id="memo" ${ro}></textarea>` +
+    (u.k !== null && row.noteHead ? `<div class="box"><b>この要確認事項に、番号を付けずに書いてある認識合わせ（そのまま残します）</b>${esc(row.noteHead)}</div>` : "") +
+    (u.k !== null ? `<div class="box" id="preview"></div>` : "") +
+    `<p class="hint">${u.k !== null ? "決定した答えだけを、小問の番号を付けて書きます。" : "決定した答えだけを、確認結果・回答・備考・QA起票文の列に書きます。"}ほかの列は変えません。</p></div>`;
   const shown = visible().map(([, i]) => i), at = shown.indexOf(cur);
   html += `<div class="nav"><button id="prev" ${at === 0 ? "disabled" : ""}>← 前へ</button>` +
     (locked ? `<button id="redo">決め直す</button>` : `<button class="primary" id="decide" ${canDecide(u) ? "" : "disabled"}>決定して次へ</button>`) +
@@ -617,15 +625,15 @@ function renderCard() {
     `<p class="hint" style="text-align:center">キーボードの ← → か、カードの上でホイールを回しても送れます</p>`;
   $("card").innerHTML = html;
   // 文字は value で入れる（HTML として読ませない）
-  if (u.k === null) {
-    $("ans").value = v["回答"];
-    $("ans").addEventListener("input", e => { v["回答"] = e.target.value; inputChanged(); });
-  } else {
-    const s = row.subs[u.k];
-    $("memo").value = s.memo;
-    $("memo").addEventListener("input", e => { s.memo = e.target.value; renderPreview(); inputChanged(); });
-    renderPreview();
+  // 回答・起票する質問の文・備考の欄。確認一覧は列の値に、要確認事項は小問に入れる
+  const target = u.k === null ? { ans: [v, "回答"], qa: [v, "QA起票文"], memo: [v, "備考"] } : { ans: [it, "answer"], qa: [it, "qa"], memo: [it, "memo"] };
+  if (k === "ask" && !locked && !target.qa[0][target.qa[1]]) target.qa[0][target.qa[1]] = u.k === null ? v["確かめてほしいこと"] : it.q;   // 初めは業務向けの問いの文
+  for (const [id, [obj, key]] of Object.entries(target)) {
+    if (!$(id)) continue;
+    $(id).value = obj[key] ?? "";
+    $(id).addEventListener("input", e => { obj[key] = e.target.value; if (u.k !== null) renderPreview(); inputChanged(); });
   }
+  if (u.k !== null) renderPreview();
 }
 
 // 打っている間：決定のボタンを押せるかと、左の一覧を直す
@@ -637,7 +645,7 @@ function inputChanged() {
 
 // この小問で、どの列に何を書くか
 // 書き戻す内容。列ごとの欄で、手で直せる（直したら、ボタンや備考を変えてもそのまま）
-const COLS = [["answer", "要約への回答"], ["held", "検討事項"], ["confirm", "認識合わせ"]];
+const COLS = [["answer", "要約への回答"], ["held", "検討事項"], ["confirm", "認識合わせ"], ["ask", "お客様に確認"], ["none", "不要"], ["memo", "備考"]];
 function renderPreview() {
   const u = book.units[cur], s = u.row.subs[u.k], lines = subLines(u.row, s), n = u.k + 1, locked = s.decided;
   const out = COLS.filter(([k]) => lines[k] !== null);
@@ -669,8 +677,8 @@ function snapshot() {
   const out = {};
   for (const u of book.units) {
     const it = item(u);
-    if (u.k === null) out[u.row.v["No."]] = { q: u.row.v[book.lay.ask], r: it.v["確認結果"], a: it.v["回答"], decided: it.decided, saved: it.saved };
-    else out[`${u.row.v["No."]}｜${u.k}`] = { q: it.q, kind: it.kind, memo: it.memo, edit: it.edit, decided: it.decided, saved: it.saved };
+    if (u.k === null) out[u.row.v["No."]] = { q: u.row.v[book.lay.ask], now: rowSaved(it.v), decided: it.decided, saved: it.saved };
+    else out[`${u.row.v["No."]}｜${u.k}`] = { q: it.q, kind: it.kind, answer: it.answer, memo: it.memo, qa: it.qa, edit: it.edit, decided: it.decided, saved: it.saved };
   }
   return out;
 }
@@ -694,10 +702,10 @@ function restoreDraft() {
   if (!confirm(`前回（${stored.at}）にこのファイルで入れたものが残っています（${back.length} 件。うち決定 ${dec}・書きかけ ${back.length - dec}）。\n続きから始めますか？\n（「キャンセル」なら、xlsx に書いてあるとおりで始めます）`)) return;
   for (const [u, s] of back) {
     const it = item(u);
-    if (u.k === null) Object.assign(it.v, { "確認結果": s.r, "回答": s.a });
-    else { it.kind = s.kind; it.memo = s.memo; it.edit = s.edit || {}; u.row.touched = true; }
+    if (u.k === null) Object.assign(it.v, s.now || { "確認結果": s.r, "回答": s.a });
+    else { Object.assign(it, { kind: s.kind, answer: s.answer ?? "", memo: s.memo ?? "", qa: s.qa ?? "", edit: s.edit || {} }); u.row.touched = true; }
     it.decided = s.decided; it.saved = s.saved;
-    if (u.k !== null) it.saved.edit ||= {};
+    if (u.k !== null) Object.assign(it.saved, { answer: it.saved.answer ?? "", memo: it.saved.memo ?? "", qa: it.saved.qa ?? "", edit: it.saved.edit || {} });
   }
 }
 
@@ -747,13 +755,11 @@ $("filters").addEventListener("click", e => {
 });
 $("list").addEventListener("click", e => { const it = e.target.closest(".item"); if (it) go(+it.dataset.i); });
 $("card").addEventListener("click", e => {
-  if (e.target.dataset.r !== undefined) {   // もう一度押すと外す
-    const v = book.units[cur].row.v, r = e.target.dataset.r;
-    v["確認結果"] = v["確認結果"] === r ? "" : r; refresh();
-  }
   if (e.target.dataset.kind !== undefined) {   // もう一度押すと外す
-    const u = book.units[cur], s = u.row.subs[u.k], k = e.target.dataset.kind;
-    s.kind = s.kind === k ? "" : k; refresh();
+    const u = book.units[cur], k = e.target.dataset.kind, off = nowKind(u) === k;
+    if (u.k === null) u.row.v["確認結果"] = off ? "" : RESULT_OF[k];
+    else u.row.subs[u.k].kind = off ? "" : k;
+    refresh();
   }
   if (e.target.dataset.reset !== undefined) {   // 書き戻す内容を、ボタンと備考から作るのに戻す
     const u = book.units[cur];
@@ -812,10 +818,17 @@ $("save").addEventListener("click", async () => {
     (drafts ? `\n書きかけの ${drafts} 件は、決定していないので保存していません。` : ""));
 });
 // ---------- 起票分（QA表に貼る行）----------
-// 確認結果が「お客様に確認」の行だけを、QA表の列の並び（No・現行機能・対象・質問・確認の内容・BlueMemeの案・参考資料）で出す。No. は QA表で振るので空
+// 「お客様に確認」にして決定したものだけを、QA表の列の並び（No・現行機能・対象・質問・確認の内容・BlueMemeの案・参考資料）で出す。No. は QA表で振るので空
 const QA_ASK = "お客様に確認", QA_HEAD = ["No", "現行機能", "対象", "質問・確認の内容", "BlueMemeの案", "参考資料"];
+// 決定して「お客様に確認」にしたもの。[対象, 質問の文, 案]
 function qaRows() {
-  return book && book.lay.sheet === "確認一覧" ? book.rows.filter(r => r.v["確認結果"] === QA_ASK) : [];
+  if (!book) return [];
+  return book.units.filter(u => item(u).decided && savedKind(u) === "ask").map(u => {
+    const v = u.row.v, s = item(u).saved;
+    if (u.k === null) return [v["項目"], s["QA起票文"] || v["確かめてほしいこと"],
+      (s["回答"] || "").trim() || adviceAnswer(v["AI のおすすめ"]) || (v["区分"] === "ふつうはこうする" ? v["確かめてほしいこと"] : "")];
+    return [v["項目"], (s.qa || "").trim() || item(u).q, adviceAnswer(v["AI のおすすめ"])];
+  });
 }
 // 表紙の「<key>」の右の値（表紙は見出しと値が交互に並ぶ。値が無いときは「－」が入る）
 function coverValue(key) {
@@ -824,13 +837,9 @@ function coverValue(key) {
   return v === "－" ? "" : v;
 }
 async function qaBook(rows) {
-  const name = book.name.replace(/_確認一覧_.*$/, "").replace(/\.xlsx$/, "");
+  const name = book.name.replace(/_(確認一覧|受け入れ基準と要確認事項)_.*$/, "").replace(/\.xlsx$/, "");
   const current = coverValue("現行機能");
-  const lines = rows.map(r => {
-    const v = r.v;
-    const plan = v["回答"].trim() || adviceAnswer(v["AI のおすすめ"]) || (v["区分"] === "ふつうはこうする" ? v["確かめてほしいこと"] : "");
-    return ["", current, v["項目"], v["QA起票文"] || v["確かめてほしいこと"], plan, `機能要件詳細「${name}」`];
-  });
+  const lines = rows.map(([target, question, plan]) => ["", current, target, question, plan, `機能要件詳細「${name}」`]);
   const x = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const cell = (s, c, r, st) => `<c r="${colName(c)}${r}" t="inlineStr" s="${st}"><is><t xml:space="preserve">${x(s)}</t></is></c>`;
   const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="${NS}">` +
@@ -858,7 +867,7 @@ $("qaout").addEventListener("click", async () => {
   const { blob, file } = await qaBook(rows);
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = file; a.click();
-  alert(`確認結果が「${QA_ASK}」の ${rows.length} 行を、QA表の列の並びで ${file} に出しました。確認一覧の行はそのまま残ります。`);
+  alert(`「${QA_ASK}」にして決定した ${rows.length} 件を、QA表の列の並びで ${file} に出しました。元の一覧の行はそのまま残ります。`);
 });
 window.addEventListener("beforeunload", e => { if (book && (changes().length || counts().drafts)) e.preventDefault(); });
 </script>
