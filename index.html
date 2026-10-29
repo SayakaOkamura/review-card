@@ -468,7 +468,11 @@ const esc = s => String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;"
 
 // 1枚（小問か、確認一覧の1行）の、決定の印・決定した答え・今カードに入っているものがあるか
 const item = u => u.k === null ? u.row : u.row.subs[u.k];
-const savedKind = u => u.k === null ? "" : item(u).saved.kind;
+// 確認一覧の行は、確認結果が「持ち帰り」なら持ち帰りの印にする（決定済みには数えるが、色を分ける）
+const savedKind = u => u.k === null ? (u.row.saved["確認結果"] === HOLD_RESULT ? "hold" : "") : item(u).saved.kind;
+// 確認一覧の確認結果のボタンの言い方。xlsx に書くのは選択肢の値のまま
+const HOLD_RESULT = "持ち帰り";
+const RESULT_LABEL = { "妥当": "いい（このとおり）", "違う": "違う（回答に書く）", "不要": "確かめなくてよい", "お客様に確認": "お客様に確認（起票する）", [HOLD_RESULT]: "持ち帰り（回答にメモ）" };
 function hasInput(u) {
   return u.k === null ? !!(u.row.v["確認結果"] || u.row.v["回答"].trim()) : !!(item(u).kind || item(u).memo.trim());
 }
@@ -506,7 +510,8 @@ function redo(i) {   // 決め直す：決定した答えをカードに戻し�
 
 function filters() {
   const lay = book.lay.filters(book.rows).map(([k, p]) => [k, u => p(u.row)]);
-  const sub = book.lay.sub ? [["検討事項", u => item(u).decided && savedKind(u) === "hold"], ["認識合わせ", u => item(u).decided && savedKind(u) === "confirm"]] : [];
+  const sub = book.lay.sub ? [["検討事項", u => item(u).decided && savedKind(u) === "hold"], ["認識合わせ", u => item(u).decided && savedKind(u) === "confirm"]]
+    : [[HOLD_RESULT, u => item(u).decided && savedKind(u) === "hold"]];
   return [["すべて", () => true], ["未回答", u => !item(u).decided], ["書きかけ", u => state(u) === "draft"], ...sub, ...lay];
 }
 
@@ -590,7 +595,7 @@ function renderCard() {
     extra.map(h => `<details><summary>${esc(h)}</summary><div class="box">${esc(v[h])}</div></details>`).join("");
   if (u.k === null) {
     html += `<div class="answer"><label>確認結果</label><div class="results">` +
-      book.choices.map(ch => `<button data-r="${esc(ch)}" class="${v["確認結果"] === ch ? "on" : ""}" ${locked ? "disabled" : ""}>${esc(ch)}</button>`).join("") +
+      book.choices.map(ch => `<button data-r="${esc(ch)}" class="${v["確認結果"] === ch ? "on" : ""}" ${locked ? "disabled" : ""}>${esc(RESULT_LABEL[ch] || ch)}</button>`).join("") +
       `</div>` +
       `<label>回答</label><textarea id="ans" ${locked ? "readonly" : ""}></textarea></div>`;
   } else {
