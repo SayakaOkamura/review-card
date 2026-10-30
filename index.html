@@ -808,7 +808,7 @@ function step(d) {
   const to = at < 0 ? shown[0] : shown[at + d];
   if (to === undefined) return;
   go(to);
-  // 送ったカードの頭から読めるように（続けてホイールを回しても、次々には送られない）
+  // 送ったカードの頭から読めるように
   const top = $("card").getBoundingClientRect().top + window.scrollY - 8;
   if (window.scrollY > top) window.scrollTo(0, top);
 }
