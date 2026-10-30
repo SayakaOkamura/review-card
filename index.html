@@ -634,7 +634,7 @@ function renderCard() {
   html += `<div class="nav"><button id="prev" ${at === 0 ? "disabled" : ""}>← 前へ</button>` +
     (locked ? `<button id="redo">決め直す</button>` : `<button class="primary" id="decide" ${canDecide(u) ? "" : "disabled"}>決定して次へ</button>`) +
     `<button id="next" ${at === shown.length - 1 ? "disabled" : ""}>次へ →</button></div>` +
-    `<p class="hint" style="text-align:center">キーボードの ← → か、カードの上でホイールを回しても送れます</p>`;
+    `<p class="hint" style="text-align:center">キーボードの ← → でも送れます</p>`;
   $("card").innerHTML = html;
   // 文字は value で入れる（HTML として読ませない）
   // 回答・起票する質問の文・備考の欄。確認一覧は列の値に、要確認事項は小問に入れる
@@ -707,20 +707,21 @@ function notice(text, buttons = []) {
   for (const [id, , fn] of buttons) $(id).addEventListener("click", () => { $("notice").textContent = ""; fn(); });
 }
 
-// 同じ xlsx（名前とシートが同じ）の控えがあり、今の中身と違えば、戻すかを訊く（知らせの欄のボタンで）
-function restoreDraft() {
+// 同じ xlsx（名前とシートが同じ）の控えがあり、今の中身と違えば、戻すかを訊く（知らせの欄のボタンで）。
+// 答えてからカードを出す（答える前に入れたものを、あとで控えで上書きしないように）
+function restoreDraft(start) {
   let stored;
-  try { stored = JSON.parse(localStorage.getItem(draftKey()) || "null"); } catch (e) { return; }
-  if (!stored) return;
+  try { stored = JSON.parse(localStorage.getItem(draftKey()) || "null"); } catch (e) { return start(); }
+  if (!stored) return start();
   const now = snapshot(), back = [];
   for (const u of book.units) {
     const key = u.k === null ? u.row.v["No."] : `${u.row.v["No."]}｜${u.k}`, s = stored.items[key];
     if (s && s.q === now[key].q && JSON.stringify(s) !== JSON.stringify(now[key])) back.push([u, s]);
   }
-  if (!back.length) return;
+  if (!back.length) return start();
   const dec = back.filter(([, s]) => s.decided).length;
   notice(`前回（${stored.at}）にこのファイルで入れたものが残っています（${back.length} 件。うち決定 ${dec}・書きかけ ${back.length - dec}）。続きから始めますか？`,
-    [["restoreYes", "続きから始める", () => { applyDraft(back); refresh(); }], ["restoreNo", "xlsx に書いてあるとおりで始める", () => {}]]);
+    [["restoreYes", "続きから始める", () => { applyDraft(back); start(); }], ["restoreNo", "xlsx に書いてあるとおりで始める", start]]);
 }
 
 function applyDraft(back) {
@@ -752,12 +753,14 @@ async function openFile(file) {
     const buf = await file.arrayBuffer();
     status(`${file.name} を読んでいます…（中の表を読む）`);
     book = await readBook(buf, file.name);
-    restoreDraft();
-    cur = Math.max(0, book.units.findIndex(u => !item(u).decided)); filter = "すべて";
     $("fname").textContent = file.name;
     $("drop").style.display = "none";
-    $("main").classList.add("on");
-    refresh();
+    $("main").classList.remove("on");
+    restoreDraft(() => {
+      cur = Math.max(0, book.units.findIndex(u => !item(u).decided)); filter = "すべて";
+      $("main").classList.add("on");
+      refresh();
+    });
   } catch (e) {
     status(`読み込めませんでした：${e.message || e}`, true);
   }
@@ -810,26 +813,13 @@ function step(d) {
   if (window.scrollY > top) window.scrollTo(0, top);
 }
 
-// 矢印：← → で前・次。↑ ↓ は、ページをそれ以上その向きに動かせないときだけ前・次
-// ホイール：カードの上で、ページの端まで来ていたら前・次（1回の操作で1枚）
+// 矢印：← → で前・次（↑ ↓ とホイールは、ページを動かすだけ）
 const typing = el => el && (el.tagName === "TEXTAREA" || el.tagName === "INPUT");
-const atTop = () => window.scrollY <= 0;
-const atBottom = () => window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
 document.addEventListener("keydown", e => {
   if (!book || typing(document.activeElement) || e.ctrlKey || e.altKey || e.metaKey) return;
-  const d = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: atTop() ? -1 : 0, ArrowDown: atBottom() ? 1 : 0 }[e.key];
+  const d = { ArrowLeft: -1, ArrowRight: 1 }[e.key];
   if (d) { e.preventDefault(); step(d); }
 });
-let wheelAt = 0;
-$("card").addEventListener("wheel", e => {
-  if (typing(e.target) || Math.abs(e.deltaY) < 10) return;
-  const d = e.deltaY > 0 ? (atBottom() ? 1 : 0) : (atTop() ? -1 : 0);
-  if (!d) return;
-  e.preventDefault();
-  if (Date.now() - wheelAt < 400) return;
-  wheelAt = Date.now();
-  step(d);
-}, { passive: false });
 $("save").addEventListener("click", async () => {
   const ch = changes();
   const blob = await writeBook();
