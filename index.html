@@ -515,9 +515,19 @@ function state(u) {
 }
 
 function decide(i) {
-  const u = book.units[i], it = item(u);
-  if (u.k === null) it.saved = rowSaved(it.v);
-  else { it.saved = { kind: it.kind, answer: it.answer, memo: it.memo, qa: it.qa, edit: { ...it.edit } }; u.row.touched = true; }
+  const u = book.units[i], it = item(u), k = nowKind(u);
+  // 押したボタンで使わない欄（回答・起票する質問の文・書き戻す内容の手直し）は空にしてから決める（xlsx にも控えにも残さない）
+  if (u.k === null) {
+    if (k !== "answer") it.v["回答"] = "";
+    if (k !== "ask") it.v["QA起票文"] = "";
+    it.saved = rowSaved(it.v);
+  } else {
+    if (k !== "answer") it.answer = "";
+    if (k !== "ask") it.qa = "";
+    const auto = autoLines(u.row, it);
+    for (const key of Object.keys(it.edit)) if (auto[key] === null) delete it.edit[key];
+    it.saved = { kind: it.kind, answer: it.answer, memo: it.memo, qa: it.qa, edit: { ...it.edit } }; u.row.touched = true;
+  }
   it.decided = true;
   // 次の、まだ決めていない1枚へ（無ければ今の1枚のまま。完了を出す）
   const n = book.units.length;
