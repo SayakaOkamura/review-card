@@ -93,7 +93,7 @@ button.reset { padding: 0 8px; font-size: 12px; margin-left: 6px; }
   <p><b>受け入れ基準と要確認事項か、確認一覧の xlsx を、ここに置くか選んでください</b></p>
   <p>ファイルはこのパソコンの中だけで読みます（どこにも送りません）</p>
   <p><label for="pick">xlsx ファイルを選ぶ</label> <input type="file" id="pick" accept=".xlsx" aria-label="xlsx ファイルを選ぶ"></p>
-  <p id="status" style="color: var(--warn); font-weight: bold;">このページは今、動いていません。エクスプローラーでこのファイルをダブルクリックし、Edge か Chrome で開いてください（Claude のアプリの中では動きません）。</p>
+  <p id="status" style="color: var(--warn); font-weight: bold;">このページは今、動いていません。Edge か Chrome で開き直してください（Claude のアプリの中では動きません）。</p>
 </div>
 
 <div id="notice" role="status" aria-live="polite"></div>
@@ -683,7 +683,9 @@ function refreshSide() {   // 打っている間は、左の一覧を少し待�
 }
 
 // ---------- 控え：カードで入れたものを、このブラウザの中にだけ残す（読み込み直しても戻せるように） ----------
-const draftKey = () => `確認一覧カード｜${book.name}｜${book.lay.sheet}`;
+// 保存し直すとブラウザが名前に「 (1)」などを付けるので、それを外した名前で控える・保存する
+const baseName = () => book.name.replace(/\s*\(\d+\)(?=\.xlsx$)/i, "");
+const draftKey = () => `確認一覧カード｜${baseName()}｜${book.lay.sheet}`;
 
 function snapshot() {
   const out = {};
@@ -832,8 +834,10 @@ $("save").addEventListener("click", async () => {
   const ch = changes();
   const blob = await writeBook();
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob); a.download = book.name; a.click();
+  a.href = URL.createObjectURL(blob); a.download = baseName(); a.click();
   for (const [row, h, text] of ch) row.orig[h] = text;
+  // 保存した中身を「読み込んだときの値」にする（決め直して前の答えに戻したときも、書き換えとして数える）
+  if (book.lay.sub) for (const row of book.rows) row.start = subValues(row);
   book.added = [];
   refresh(false);
   const drafts = counts().drafts;
@@ -864,7 +868,7 @@ function coverValue(key) {
   return v === "－" ? "" : v;
 }
 async function qaBook(rows) {
-  const name = book.name.replace(/_(確認一覧|受け入れ基準と要確認事項)_.*$/, "").replace(/\.xlsx$/, "");
+  const name = baseName().replace(/_(確認一覧|受け入れ基準と要確認事項)_.*$/, "").replace(/\.xlsx$/, "");
   const current = coverValue("現行機能");
   const lines = rows.map(([target, question, plan]) => ["", current, target, question, plan, `機能要件詳細「${name}」`, "", "", "", ""]);
   const x = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
