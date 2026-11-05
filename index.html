@@ -38,31 +38,34 @@ main.on { display: grid; }
 #filters { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: none; }
 #filters button { padding: 1px 10px; font-size: 12px; white-space: nowrap; border-radius: 999px; }
 #filters button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-#list { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 0; }
-/* 狭いとき：一覧は点の列（件名は点に載せると出る） */
-#list .item { width: 14px; height: 14px; border-radius: 4px; cursor: pointer; background: var(--line); }
-#list .item.done { background: var(--ok); }
-#list .item.hold { background: var(--warn); }
-#list .item.draft, #list .item.redo { background: var(--panel); box-shadow: inset 0 0 0 2px var(--accent); }
-#list .item.cur { outline: 2px solid var(--ink); outline-offset: 1px; }
-#list .txt, #list .mark { display: none; }
-/* 広いとき：一覧は左に、件名付きで出す */
-@media (min-width: 1100px) {
-  main { max-width: 1240px; grid-template-columns: 320px minmax(0, 860px); justify-content: center; align-items: start; }
-  .strip { position: sticky; top: 10px; max-height: calc(100vh - 70px); display: flex; flex-direction: column; padding: 0; overflow: hidden; }
-  #filters { flex-wrap: wrap; flex-shrink: 0; overflow: visible; padding: 10px; border-bottom: 1px solid var(--line); margin: 0; }
-  #checkwrap { flex-shrink: 0; }
-  #list { display: block; overflow: auto; flex: 1; padding: 0; }
-  #list .item { width: auto; height: auto; border-radius: 0; background: none; box-shadow: none; display: grid; grid-template-columns: 14px 1fr; gap: 8px; padding: 7px 12px; border-bottom: 1px solid var(--line); border-left: 4px solid var(--kc, transparent); font-size: 13px; line-height: 1.5; }
-  #list .item.done, #list .item.hold, #list .item.draft, #list .item.redo { background: none; box-shadow: none; }
-  #list .item.cur { outline: none; background: var(--accent-soft); }
-  #list .txt { display: block; }
-  #list .no { color: var(--sub); font-size: 11px; }
-  #list .mark { display: block; width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; border: 2px solid var(--line); }
-  #list .item.done .mark { background: var(--ok); border-color: var(--ok); }
-  #list .item.hold .mark { background: var(--warn); border-color: var(--warn); }
-  #list .item.draft .mark, #list .item.redo .mark { border-color: var(--accent); border-style: dashed; }
-  #checkwrap { margin: 0; padding: 8px 12px; border-top: 1px solid var(--line); }
+/* 色付きの点（いつも出す） */
+#dots { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 0; }
+#dots .dot { width: 14px; height: 14px; border-radius: 4px; cursor: pointer; background: var(--line); }
+#dots .dot.done { background: var(--ok); }
+#dots .dot.hold { background: var(--warn); }
+#dots .dot.draft, #dots .dot.redo { background: var(--panel); box-shadow: inset 0 0 0 2px var(--accent); }
+#dots .dot.cur { outline: 2px solid var(--ink); outline-offset: 1px; }
+.stripfoot { display: flex; gap: 10px; align-items: center; margin-top: 4px; }
+#listbar { padding: 1px 12px; font-size: 12px; border-radius: 999px; }
+#listbar[aria-expanded="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+/* 件名付きの一覧：左右に余白があれば左に、無ければ「一覧」で開く */
+#side { display: none; overflow: hidden; }
+main.listopen #side { display: block; }
+#list { max-height: 45vh; overflow: auto; }
+#list .item { display: grid; grid-template-columns: 14px 1fr; gap: 8px; padding: 7px 12px; border-bottom: 1px solid var(--line); border-left: 4px solid var(--kc, transparent); font-size: 13px; line-height: 1.5; cursor: pointer; }
+#list .item.cur { background: var(--accent-soft); }
+#list .no { color: var(--sub); font-size: 11px; }
+#list .mark { width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; border: 2px solid var(--line); }
+#list .item.done .mark { background: var(--ok); border-color: var(--ok); }
+#list .item.hold .mark { background: var(--warn); border-color: var(--warn); }
+#list .item.draft .mark, #list .item.redo .mark { border-color: var(--accent); border-style: dashed; }
+@media (min-width: 1240px) {
+  main { max-width: none; grid-template-columns: 1fr minmax(0, 800px) 1fr; grid-template-rows: min-content 1fr; align-items: start; }
+  .strip { grid-column: 2; grid-row: 1; }
+  #card { grid-column: 2; grid-row: 2; }
+  #side, main.listopen #side { display: block; grid-column: 1; grid-row: 1 / span 2; justify-self: end; width: 100%; max-width: 320px; position: sticky; top: 10px; }
+  #list { max-height: calc(100vh - 70px); }
+  #listbar { display: none; }
 }
 #checkwrap { margin-top: 4px; }
 #checkwrap summary { font-size: 12px; color: var(--sub); cursor: pointer; }
@@ -88,6 +91,16 @@ main.on { display: grid; }
 .idea .why { font-size: 12px; line-height: 1.6; color: var(--sub); white-space: pre-wrap; margin-top: 2px; }
 .how { margin: 10px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--sub); white-space: pre-wrap; padding-left: 10px; border-left: 3px solid var(--line); }
 .how b { display: block; color: var(--ink); font-size: 11px; }
+.seen { margin: 10px 0 0; padding: 6px 12px; border-radius: 8px; background: var(--accent-soft); font-size: 14px; line-height: 1.6; }
+.seen b { color: var(--accent); font-size: 11px; margin-right: 8px; }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+.compare > div { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; min-width: 0; }
+.compare h3 { margin: 0 0 4px; font-size: 11px; color: var(--sub); font-weight: bold; }
+.quote { font-size: 12px; line-height: 1.6; white-space: pre-wrap; margin: 0 0 6px; padding-left: 8px; border-left: 3px solid var(--line); }
+.quote .src { display: block; font-size: 10.5px; color: var(--sub); }
+.compare .none { font-size: 12px; color: var(--sub); }
+.compare img { max-width: 100%; border: 1px solid var(--line); border-radius: 4px; display: block; margin-top: 4px; }
 .box { border-left: 3px solid var(--line); padding: 4px 12px; margin: 6px 0; white-space: pre-wrap; font-size: 13px; }
 .box b { display: block; font-size: 12px; color: var(--sub); }
 .box.advice { border-color: var(--ok); background: var(--ok-soft); }
@@ -131,7 +144,8 @@ textarea { width: 100%; min-height: 70px; font: inherit; padding: 6px 8px; borde
 <div id="drop">
   <p><b>受け入れ基準と要確認事項か、確認一覧の xlsx を、ここに置くか選んでください</b></p>
   <p>ファイルはこのパソコンの中だけで読みます（どこにも送りません）</p>
-  <p><label for="pick">xlsx ファイルを選ぶ</label> <input type="file" id="pick" accept=".xlsx" aria-label="xlsx ファイルを選ぶ"></p>
+  <p>補足（&lt;機能名&gt;_補足.json）があれば、一緒に選ぶか置いてください</p>
+  <p><label for="pick">xlsx ファイルを選ぶ</label> <input type="file" id="pick" accept=".xlsx,.json" multiple aria-label="xlsx ファイルを選ぶ"></p>
   <p id="status" style="color: var(--warn); font-weight: bold;">このページは今、動いていません。Edge か Chrome で開き直してください（Claude のアプリの中では動きません）。</p>
 </div>
 
@@ -140,9 +154,11 @@ textarea { width: 100%; min-height: 70px; font: inherit; padding: 6px 8px; borde
 <main id="main">
   <div class="panel strip">
     <div id="filters"></div>
-    <div id="list" aria-label="カード（色：緑 決定済み・橙 保留・枠 書きかけ・灰 未回答）"></div>
-    <details id="checkwrap"><summary id="checksum"></summary><div id="check"></div></details>
+    <div id="dots" aria-label="カード（色：緑 決定済み・橙 保留・枠 書きかけ・灰 未回答）"></div>
+    <div class="stripfoot"><button id="listbar" aria-expanded="false" aria-controls="side">一覧</button>
+    <details id="checkwrap"><summary id="checksum"></summary><div id="check"></div></details></div>
   </div>
+  <aside class="panel" id="side"><div id="list"></div></aside>
   <section class="panel" id="card"></section>
 </main>
 
@@ -196,7 +212,8 @@ const LAYOUTS = [
   },
 ];
 
-let book = null;   // { zip, name, lay, sheets, heads, rows, cover, added, headStyle }
+let book = null;
+let supp = {};   // 補足（<機能名>_補足.json）：{ No.: { 原文: [{出典, 文}], 所見, 画像: [{説明, src}] } }。このパソコンの中だけで読む   // { zip, name, lay, sheets, heads, rows, cover, added, headStyle }
 let cur = 0, filter = "すべて";
 
 // ---------- zip（xlsx の入れ物）。外の部品を使わず、ブラウザの機能だけで読み書きする ----------
@@ -303,6 +320,19 @@ function adviceParts(text) {
     t = a.trim();
   }
   return [t, notes];
+}
+// 補足：所見の1行と、資料の原文・現行や開発環境を左右に並べる（補足の無い行は何も出さない）
+function suppHtml(v) {
+  const s = supp[v["No."]];
+  if (!s) return "";
+  const seen = book.lay.sheet === "要確認事項" ? v["テーブル定義・現行・開発環境の記載"] : v["資料・開発環境の記載"];
+  const real = seen && seen !== "－" && book.lay.sheet === "要確認事項" ? seen : "";
+  const quotes = (s["原文"] || []).map(q => `<p class="quote"><span class="src">${esc(q["出典"])}</span>${esc(q["文"])}</p>`).join("")
+    || `<p class="none">本文に書いていない</p>`;
+  const imgs = (s["画像"] || []).map(m => `<img src="${esc(m.src)}" alt="${esc(m["説明"] || "")}"><span class="none">${esc(m["説明"] || "")}</span>`).join("");
+  return (s["所見"] ? `<div class="seen"><b>所見</b>${esc(s["所見"])}</div>` : "") +
+    `<div class="compare" ${real || imgs ? "" : 'style="grid-template-columns: 1fr"'}><div><h3>資料の原文</h3>${quotes}</div>` +
+    (real || imgs ? `<div><h3>現行・開発環境</h3>${real ? `<p class="quote">${esc(real)}</p>` : ""}${imgs}</div>` : "") + `</div>`;
 }
 const same = (a, b) => !!b && (a || "").trim().replace(/。$/, "") === b.trim();
 // 問いの最初の1文と残り
@@ -532,14 +562,17 @@ function renderCheck() {
 
 function label(row) {
   const item = row.v["項目"];
-  const text = item && !item.startsWith(row.v[book.lay.kind]) ? item : row.v[book.lay.ask];
+  const generic = !item || item.startsWith(row.v[book.lay.kind]) || (row.v["理由"] && item.startsWith(row.v["理由"])) || FINDING_KINDS.some(k => item.startsWith(k));
+  const text = generic ? splitLead(row.v[book.lay.ask])[0] : item;
   return text.length > 34 ? text.slice(0, 34) + "…" : text;
 }
 
 function renderList() {
   $("list").innerHTML = visible().map(([row, i]) =>
-    `<span class="item ${state(row)} ${i === cur ? "cur" : ""}" style="--kc: ${kindColor(row.v[book.lay.kind])}" data-i="${i}" role="button" tabindex="0" aria-current="${i === cur}" aria-label="${esc(row.v["No."])}（${STATE_NAME[state(row)]}）" title="${esc(row.v["No."])}（${STATE_NAME[state(row)]}）\n${esc(label(row))}">` +
-    `<span class="mark"></span><span class="txt"><span class="no">${esc(row.v["No."])}</span><br>${esc(label(row))}</span></span>`).join("");
+    `<div class="item ${state(row)} ${i === cur ? "cur" : ""}" style="--kc: ${kindColor(row.v[book.lay.kind])}" data-i="${i}" role="button" tabindex="0" aria-current="${i === cur}" aria-label="${esc(row.v["No."])}（${STATE_NAME[state(row)]}）" title="${esc(row.v["No."])}（${STATE_NAME[state(row)]}）\n${esc(label(row))}">` +
+    `<span class="mark"></span><span><span class="no">${esc(row.v["No."])}</span><br>${esc(label(row))}</span></div>`).join("");
+  $("dots").innerHTML = visible().map(([row, i]) =>
+    `<span class="dot ${state(row)} ${i === cur ? "cur" : ""}" data-i="${i}" title="${esc(row.v["No."])}（${STATE_NAME[state(row)]}）&#10;${esc(label(row))}"></span>`).join("");
   const el = $("list").querySelector(".cur");
   if (el) el.scrollIntoView({ block: "nearest" });
 }
@@ -568,6 +601,7 @@ function renderCard() {
     (same(v[lay.ask], idea) ? "" : `<p class="lead">${esc(lead)}</p>` + (rest ? `<p class="rest">${esc(rest)}</p>` : "")) +
     (idea ? `<div class="idea"><div class="tag">AI の案</div><div class="main">${esc(idea)}</div>` +
       (why.length ? `<div class="why">${esc(why.join("\n"))}</div>` : "") + `</div>` : "") +
+    suppHtml(v) +
     (v["確かめ方"] ? `<div class="how"><b>確かめ方</b>${esc(v["確かめ方"])}</div>` : "") +
     extra.map(h => `<details><summary>${esc(h)}</summary><div class="box">${esc(v[h])}</div></details>`).join("") +
     `</div>`;
@@ -687,11 +721,20 @@ async function openFile(file) {
 if (!("DecompressionStream" in window)) status("このブラウザでは動きません。新しい Edge か Chrome で開いてください。", true);
 else status("動いています。xlsx を選んでください。");
 
-$("pick").addEventListener("change", e => e.target.files[0] && openFile(e.target.files[0]));
+async function openFiles(files) {
+  const list = [...files];
+  for (const f of list.filter(f => /\.json$/i.test(f.name))) {
+    try { supp = JSON.parse(await f.text()).items || {}; } catch (e) { status(`補足を読めませんでした：${e.message}`, true); }
+  }
+  const x = list.find(f => /\.xlsx$/i.test(f.name));
+  if (x) await openFile(x);
+  else if (book) refresh();
+}
+$("pick").addEventListener("change", e => openFiles(e.target.files));
 const drop = $("drop");
 drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
 drop.addEventListener("dragleave", () => drop.classList.remove("over"));
-drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); e.dataTransfer.files[0] && openFile(e.dataTransfer.files[0]); });
+drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); openFiles(e.dataTransfer.files); });
 $("filters").addEventListener("click", e => {
   if (e.target.dataset.f === undefined) return;
   filter = e.target.dataset.f;
@@ -700,6 +743,12 @@ $("filters").addEventListener("click", e => {
   refresh();
 });
 $("list").addEventListener("click", e => { const it = e.target.closest(".item"); if (it) go(+it.dataset.i); });
+$("dots").addEventListener("click", e => { const it = e.target.closest(".dot"); if (it) go(+it.dataset.i); });
+$("listbar").addEventListener("click", () => {
+  const open = $("main").classList.toggle("listopen");
+  $("listbar").setAttribute("aria-expanded", open);
+  if (open) $("list").querySelector(".cur")?.scrollIntoView({ block: "nearest" });
+});
 $("list").addEventListener("keydown", e => { const it = e.target.closest(".item"); if (it && e.key === "Enter") go(+it.dataset.i); });
 $("card").addEventListener("click", e => {
   const kb = e.target.closest("[data-kind]");
