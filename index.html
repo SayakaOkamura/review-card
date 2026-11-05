@@ -168,6 +168,7 @@ const COVER = "表紙";
 const AI_RULE = "AI が補った業務の決まり";
 // 要確認事項のシートに入る、業務に確かめてもらう指摘事項（確認一覧と同じ No. の行）
 const FINDING_KINDS = ["資料の食い違い", "資料の書き漏れ"];
+const FINDING_LABEL = "資料の指摘";   // 絞り込みでは、食い違いと書き漏れを1つにまとめる
 const num = (text, re) => { const m = text.match(re); return m ? +m[1] : null; };
 
 // 読めるシートの形。どちらも1行ごとに 確認結果・回答・備考・QA起票文 を書く
@@ -178,7 +179,7 @@ const LAYOUTS = [
     more: ["確認の分け方", "共通の問い", "機能要件詳細の記載", "テーブル定義・現行・開発環境の記載", "関係する受け入れ基準"],
     // 業務・開発の分、資料の指摘事項、確認の分け方（ある機能だけ）で絞れる
     filters: rows => [["業務の分", r => r.v["種別"] !== "開発"], ["開発の分", r => r.v["種別"] !== "業務"],
-      ...FINDING_KINDS.filter(k => rows.some(r => r.v["理由"] === k)).map(k => [k, r => r.v["理由"] === k]),
+      ...(rows.some(r => FINDING_KINDS.includes(r.v["理由"])) ? [[FINDING_LABEL, r => FINDING_KINDS.includes(r.v["理由"])]] : []),
       ...[...new Set(rows.map(r => r.v["確認の分け方"]).filter(Boolean))].map(k => [k, r => r.v["確認の分け方"] === k])],
     // 表紙の「件数」の行：要確認事項 n 件（業務 a・開発 b。両方は両方に数える）・…・AI が補った業務の決まり c・資料の食い違い d・資料の書き漏れ e
     check: (rows, cover) => {
@@ -196,7 +197,8 @@ const LAYOUTS = [
   {
     sheet: "確認一覧", kind: "区分", ask: "確かめてほしいこと", where: "どこのことか", edit: EDIT,
     more: ["資料・開発環境の記載", "関係する AC"],
-    filters: rows => [...new Set(rows.map(r => r.v["区分"]))].map(k => [k, r => r.v["区分"] === k]),
+    filters: rows => [...new Set(rows.map(r => FINDING_KINDS.includes(r.v["区分"]) ? FINDING_LABEL : r.v["区分"]))]
+      .map(k => [k, k === FINDING_LABEL ? r => FINDING_KINDS.includes(r.v["区分"]) : r => r.v["区分"] === k]),
     // 表紙の「この資料」の行：区分ごとに「<区分> <n> 件」
     check: (rows, cover) => {
       const line = cover.find(t => / \d+ 件・/.test(t)) || "";
