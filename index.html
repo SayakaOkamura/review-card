@@ -174,9 +174,10 @@ const LAYOUTS = [
   {
     sheet: "要確認事項", kind: "種別", ask: "確認内容", where: "理由", edit: EDIT,
     more: ["確認の分け方", "共通の問い", "機能要件詳細の記載", "テーブル定義・現行・開発環境の記載", "関係する受け入れ基準"],
-    // 業務・開発の分と、資料の指摘（ある機能だけ）で絞れる
+    // 業務・開発の分と、資料の指摘・その他（確認の分け方が付いた行。ある機能だけ）で絞れる
     filters: rows => [["業務の分", r => r.v["種別"] !== "開発"], ["開発の分", r => r.v["種別"] !== "業務"],
-      ...(rows.some(r => FINDING_KINDS.includes(r.v["理由"])) ? [[FINDING_LABEL, r => FINDING_KINDS.includes(r.v["理由"])]] : [])],
+      ...(rows.some(r => FINDING_KINDS.includes(r.v["理由"])) ? [[FINDING_LABEL, r => FINDING_KINDS.includes(r.v["理由"])]] : []),
+      ...(rows.some(r => SHAPE_KINDS.includes(r.v["確認の分け方"])) ? [[OTHER_LABEL, r => SHAPE_KINDS.includes(r.v["確認の分け方"])]] : [])],
     // 表紙の「件数」の行：要確認事項 n 件（業務 a・開発 b。両方は両方に数える）・…・AI が補った業務の決まり c・資料の食い違い d・資料の書き漏れ e
     check: (rows, cover) => {
       const line = cover.find(t => t.includes("要確認事項") && / 件/.test(t) && t.includes("業務 ")) || "";
