@@ -163,8 +163,9 @@ const AI_RULE = "AI が補った業務の決まり";
 // 要確認事項のシートに入る、業務に確かめてもらう指摘事項（確認一覧と同じ No. の行）
 const FINDING_KINDS = ["資料の食い違い", "資料の書き漏れ"];
 const FINDING_LABEL = "資料の指摘";
-// 確認一覧の形（答えてもらう問い・おすすめでいいか・ふつうはこうする）は、絞り込みには出さない（カードの中には出す）
-const SHAPE_KINDS = ["答えてもらう問い", "おすすめでいいか", "ふつうはこうする"];   // 絞り込みでは、食い違いと書き漏れを1つにまとめる
+// 確認一覧の形（答えてもらう問い・おすすめでいいか・ふつうはこうする）は、絞り込みでは「その他」の1つにまとめる（カードの中には区分を出す）
+const SHAPE_KINDS = ["答えてもらう問い", "おすすめでいいか", "ふつうはこうする"];
+const OTHER_LABEL = "その他";   // 絞り込みでは、食い違いと書き漏れを1つにまとめる
 const num = (text, re) => { const m = text.match(re); return m ? +m[1] : null; };
 
 // 読めるシートの形。どちらも1行ごとに 確認結果・回答・備考・QA起票文 を書く
@@ -192,8 +193,9 @@ const LAYOUTS = [
   {
     sheet: "確認一覧", kind: "区分", ask: "確かめてほしいこと", where: "どこのことか", edit: EDIT,
     more: ["資料・開発環境の記載", "関係する AC"],
-    filters: rows => [...new Set(rows.map(r => FINDING_KINDS.includes(r.v["区分"]) ? FINDING_LABEL : r.v["区分"]))].filter(k => !SHAPE_KINDS.includes(k))
-      .map(k => [k, k === FINDING_LABEL ? r => FINDING_KINDS.includes(r.v["区分"]) : r => r.v["区分"] === k]),
+    filters: rows => [...new Set(rows.map(r => FINDING_KINDS.includes(r.v["区分"]) ? FINDING_LABEL : SHAPE_KINDS.includes(r.v["区分"]) ? OTHER_LABEL : r.v["区分"]))]
+      .sort((a, b) => (a === OTHER_LABEL) - (b === OTHER_LABEL))
+      .map(k => [k, k === FINDING_LABEL ? r => FINDING_KINDS.includes(r.v["区分"]) : k === OTHER_LABEL ? r => SHAPE_KINDS.includes(r.v["区分"]) : r => r.v["区分"] === k]),
     // 表紙の「この資料」の行：区分ごとに「<区分> <n> 件」
     check: (rows, cover) => {
       const line = cover.find(t => / \d+ 件・/.test(t)) || "";
