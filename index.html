@@ -31,19 +31,39 @@ button:disabled { opacity: .45; cursor: default; }
 #drop { margin: 40px auto; max-width: 560px; padding: 40px 24px; border: 2px dashed var(--line); border-radius: 10px; text-align: center; background: var(--panel); }
 #drop.over { border-color: var(--accent); background: var(--accent-soft); }
 #drop p { margin: 6px 0; color: var(--sub); }
-main { display: none; flex-direction: column; gap: 10px; padding: 10px 16px 16px; max-width: 860px; margin: 0 auto; }
-main.on { display: flex; }
+main { display: none; grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 10px 16px 16px; max-width: 860px; margin: 0 auto; }
+main.on { display: grid; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
 .strip { padding: 8px 12px; }
 #filters { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: none; }
 #filters button { padding: 1px 10px; font-size: 12px; white-space: nowrap; border-radius: 999px; }
 #filters button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 #list { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 0; }
+/* 狭いとき：一覧は点の列（件名は点に載せると出る） */
 #list .item { width: 14px; height: 14px; border-radius: 4px; cursor: pointer; background: var(--line); }
 #list .item.done { background: var(--ok); }
 #list .item.hold { background: var(--warn); }
 #list .item.draft, #list .item.redo { background: var(--panel); box-shadow: inset 0 0 0 2px var(--accent); }
 #list .item.cur { outline: 2px solid var(--ink); outline-offset: 1px; }
+#list .txt, #list .mark { display: none; }
+/* 広いとき：一覧は左に、件名付きで出す */
+@media (min-width: 1100px) {
+  main { max-width: 1240px; grid-template-columns: 320px minmax(0, 860px); justify-content: center; align-items: start; }
+  .strip { position: sticky; top: 10px; max-height: calc(100vh - 70px); display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+  #filters { flex-wrap: wrap; flex-shrink: 0; overflow: visible; padding: 10px; border-bottom: 1px solid var(--line); margin: 0; }
+  #checkwrap { flex-shrink: 0; }
+  #list { display: block; overflow: auto; flex: 1; padding: 0; }
+  #list .item { width: auto; height: auto; border-radius: 0; background: none; box-shadow: none; display: grid; grid-template-columns: 14px 1fr; gap: 8px; padding: 7px 12px; border-bottom: 1px solid var(--line); border-left: 4px solid var(--kc, transparent); font-size: 13px; line-height: 1.5; }
+  #list .item.done, #list .item.hold, #list .item.draft, #list .item.redo { background: none; box-shadow: none; }
+  #list .item.cur { outline: none; background: var(--accent-soft); }
+  #list .txt { display: block; }
+  #list .no { color: var(--sub); font-size: 11px; }
+  #list .mark { display: block; width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; border: 2px solid var(--line); }
+  #list .item.done .mark { background: var(--ok); border-color: var(--ok); }
+  #list .item.hold .mark { background: var(--warn); border-color: var(--warn); }
+  #list .item.draft .mark, #list .item.redo .mark { border-color: var(--accent); border-style: dashed; }
+  #checkwrap { margin: 0; padding: 8px 12px; border-top: 1px solid var(--line); }
+}
 #checkwrap { margin-top: 4px; }
 #checkwrap summary { font-size: 12px; color: var(--sub); cursor: pointer; }
 #checkwrap summary .bad { color: var(--warn); font-weight: bold; }
@@ -518,7 +538,8 @@ function label(row) {
 
 function renderList() {
   $("list").innerHTML = visible().map(([row, i]) =>
-    `<span class="item ${state(row)} ${i === cur ? "cur" : ""}" data-i="${i}" role="button" tabindex="0" aria-current="${i === cur}" aria-label="${esc(row.v["No."])}（${STATE_NAME[state(row)]}）" title="${esc(row.v["No."])}（${STATE_NAME[state(row)]}）\n${esc(label(row))}"></span>`).join("");
+    `<span class="item ${state(row)} ${i === cur ? "cur" : ""}" style="--kc: ${kindColor(row.v[book.lay.kind])}" data-i="${i}" role="button" tabindex="0" aria-current="${i === cur}" aria-label="${esc(row.v["No."])}（${STATE_NAME[state(row)]}）" title="${esc(row.v["No."])}（${STATE_NAME[state(row)]}）\n${esc(label(row))}">` +
+    `<span class="mark"></span><span class="txt"><span class="no">${esc(row.v["No."])}</span><br>${esc(label(row))}</span></span>`).join("");
   const el = $("list").querySelector(".cur");
   if (el) el.scrollIntoView({ block: "nearest" });
 }
