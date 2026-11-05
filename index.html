@@ -572,8 +572,8 @@ function renderCheck() {
     `<div class="row"><span>　うち保留</span><b>${hold}</b></div>` +
     `<div class="row"><span>　うちQAに起票</span><b>${ask}</b></div>`;
   $("progress").textContent = `決定 ${done} / ${n}`;
-  $("checksum").innerHTML = `件数の点検：<span class="${ok ? "" : "bad"}">${ok ? "表紙と合っている" : "表紙と合っていない"}</span>` +
-    `・書きかけ <span class="${drafts ? "bad" : ""}">${drafts}</span>・保留 ${hold}・QAに起票 ${ask}` + (redos ? `・<span class="bad">決め直し中 ${redos}</span>` : "");
+  $("checksum").innerHTML = `読み込みの確かめ：<span class="${ok ? "" : "bad"}">${ok ? "Excel の全行を読めた（表紙の件数と一致）" : "表紙の件数と合わない。開いて区分ごとの数を見る"}</span>` +
+    `｜書きかけ <span class="${drafts ? "bad" : ""}">${drafts}</span>・保留 ${hold}・QAに起票 ${ask}` + (redos ? `・<span class="bad">決め直し中 ${redos}</span>` : "");
   if (!ok) $("checkwrap").open = true;
   $("filters").innerHTML = filters().map(([k]) => `<button data-f="${esc(k)}" class="${k === filter ? "on" : ""}" aria-pressed="${k === filter}">${esc(k)}</button>`).join("");
 }
