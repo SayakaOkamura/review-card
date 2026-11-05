@@ -8,11 +8,13 @@
 :root {
   --bg: #f6f7f9; --panel: #ffffff; --ink: #1f2933; --sub: #5f6b7a; --line: #dde2e8;
   --accent: #1f4e78; --accent-soft: #e6eef6; --ok: #2f7d4f; --ok-soft: #e5f3ea; --warn: #a15c00; --warn-soft: #fbf0df;
+  --c0: #c2410c; --c1: #a16207; --c2: #7c3aed; --c3: #1d4ed8; --c4: #15803d; --c5: #0f766e;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #15191e; --panel: #1e242b; --ink: #e6e9ed; --sub: #9aa5b1; --line: #333b45;
     --accent: #7fb2e5; --accent-soft: #243443; --ok: #6cc28f; --ok-soft: #1f3328; --warn: #e0a54f; --warn-soft: #3a2d1a;
+    --c0: #fb923c; --c1: #facc15; --c2: #c4b5fd; --c3: #93c5fd; --c4: #86efac; --c5: #5eead4;
   }
 }
 * { box-sizing: border-box; }
@@ -60,7 +62,7 @@ main.listopen #side { transform: none; }
 #side .sidehead { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--sub); }
 #side .sidehead button { padding: 0 8px; }
 #list { flex: 1; overflow: auto; }
-#list .item { padding: 7px 12px; border-bottom: 1px solid var(--line); font-size: 13px; line-height: 1.5; cursor: pointer; }
+#list .item { padding: 7px 12px; border-bottom: 1px solid var(--line); border-left: 4px solid var(--kc, transparent); font-size: 13px; line-height: 1.5; cursor: pointer; }
 #list .item .tags { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; margin-bottom: 1px; }
 #list .item.cur { background: var(--accent-soft); }
 #list .no { color: var(--sub); font-size: 11px; }
@@ -305,6 +307,13 @@ function cellText(c, shared) {
 // ボタン（両方のカードで同じ）。おすすめどおりは、おすすめの無い問いには出さない。回答を書くは、回答の欄に答えが要る
 const KINDS = [["advice", "おすすめどおり"], ["answer", "回答を書く"], ["ask", "QAに起票"], ["hold", "保留"], ["none", "不要"]];
 const KIND_ICON = { advice: "✓", answer: "✎", ask: "？", hold: "⏸", none: "✕" };
+// 一覧の左端の色：区分（確認一覧）・種別（要確認事項）ごと。無い名前は出てきた順に色を回す
+const KIND_COLOR = { "資料の食い違い": 0, "資料の書き漏れ": 1, "共通の問い": 2, "答えてもらう問い": 3, "おすすめでいいか": 4, "ふつうはこうする": 5, "業務": 3, "開発": 2, "両方": 5 };
+function kindColor(name) {
+  if (name in KIND_COLOR) return `var(--c${KIND_COLOR[name]})`;
+  const names = [...new Set(book.rows.map(r => r.v[book.lay.kind]))];
+  return `var(--c${names.indexOf(name) % 6})`;
+}
 // 分類のラベル。絞り込みと同じ名前（要確認事項は 種別 と 資料の指摘／その他、確認一覧は 資料の指摘／共通の問い／その他）
 function groupTags(row) {
   const v = row.v, sheet = book.lay.sheet;
@@ -538,8 +547,8 @@ function visible() {
   return book.rows.map((r, i) => [r, i]).filter(([r]) => pass(r));
 }
 
-function counts() {
-  const rs = book.rows, dec = rs.filter(r => r.decided);
+function counts(rs = book.rows) {
+  const dec = rs.filter(r => r.decided);
   return {
     n: rs.length, done: dec.length, drafts: rs.filter(r => state(r) === "draft").length, redos: rs.filter(r => state(r) === "redo").length,
     hold: dec.filter(r => savedKind(r) === "hold").length, ask: dec.filter(r => savedKind(r) === "ask").length,
@@ -577,15 +586,16 @@ function label(row) {
 
 function renderList() {
   $("list").innerHTML = visible().map(([row, i]) =>
-    `<div class="item ${state(row)} ${i === cur ? "cur" : ""}" data-i="${i}" role="button" tabindex="0" aria-current="${i === cur}" aria-label="${esc(row.v["No."])}（${STATE_NAME[state(row)]}）" title="${esc(row.v["No."])}（${STATE_NAME[state(row)]}）\n${esc(label(row))}">` +
+    `<div class="item ${state(row)} ${i === cur ? "cur" : ""}" style="--kc: ${kindColor(row.v[book.lay.kind])}" data-i="${i}" role="button" tabindex="0" aria-current="${i === cur}" aria-label="${esc(row.v["No."])}（${STATE_NAME[state(row)]}）" title="${esc(row.v["No."])}（${STATE_NAME[state(row)]}）\n${esc(label(row))}">` +
     `<div class="tags">${stateTag(row)}${groupTagsHtml(row)}<span class="no">${esc(row.v["No."])}</span></div>${esc(label(row))}</div>`).join("");
-  const c = counts(), n = c.n, ok = c.done - c.hold, pc = x => (x / n * 100).toFixed(2) + "%";
+  // 絞り込んでいれば、絞り込んだ行だけの進み具合
+  const c = counts(visible().map(([r]) => r)), n = Math.max(c.n, 1), ok = c.done - c.hold, pc = x => (x / n * 100).toFixed(2) + "%";
   $("bar").innerHTML = `<span class="done" style="width:${pc(ok)}"></span><span class="hold" style="width:${pc(c.hold)}"></span>` +
     `<span class="draft" style="width:${pc(c.drafts + c.redos)}"></span>`;
-  $("bar").setAttribute("aria-label", `決定 ${c.done} / ${n}`);
-  $("bartext").innerHTML = `<b>決定 ${c.done} / ${n}（${Math.round(c.done / n * 100)}%）</b>` +
+  $("bar").setAttribute("aria-label", `決定 ${c.done} / ${c.n}`);
+  $("bartext").innerHTML = (filter !== "すべて" ? `${esc(filter)}：` : "") + `<b>決定 ${c.done} / ${c.n}（${Math.round(c.done / n * 100)}%）</b>` +
     `<span class="k" style="background:var(--ok)"></span>決定済み ${ok}<span class="k" style="background:var(--warn)"></span>保留 ${c.hold}` +
-    `<span class="k" style="background:var(--accent);opacity:.55"></span>書きかけ ${c.drafts + c.redos}<span class="k" style="background:var(--line)"></span>未回答 ${n - c.done - c.drafts - c.redos}`;
+    `<span class="k" style="background:var(--accent);opacity:.55"></span>書きかけ ${c.drafts + c.redos}<span class="k" style="background:var(--line)"></span>未回答 ${c.n - c.done - c.drafts - c.redos}`;
   const el = $("list").querySelector(".cur");
   if (el) el.scrollIntoView({ block: "nearest" });
 }
