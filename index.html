@@ -8,13 +8,11 @@
 :root {
   --bg: #f6f7f9; --panel: #ffffff; --ink: #1f2933; --sub: #5f6b7a; --line: #dde2e8;
   --accent: #1f4e78; --accent-soft: #e6eef6; --ok: #2f7d4f; --ok-soft: #e5f3ea; --warn: #a15c00; --warn-soft: #fbf0df;
-  --c0: #c2410c; --c1: #a16207; --c2: #7c3aed; --c3: #1d4ed8; --c4: #15803d; --c5: #0f766e;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #15191e; --panel: #1e242b; --ink: #e6e9ed; --sub: #9aa5b1; --line: #333b45;
     --accent: #7fb2e5; --accent-soft: #243443; --ok: #6cc28f; --ok-soft: #1f3328; --warn: #e0a54f; --warn-soft: #3a2d1a;
-    --c0: #fb923c; --c1: #facc15; --c2: #c4b5fd; --c3: #93c5fd; --c4: #86efac; --c5: #5eead4;
   }
 }
 * { box-sizing: border-box; }
@@ -39,12 +37,20 @@ main.on { display: grid; }
 #filters button { padding: 1px 10px; font-size: 12px; white-space: nowrap; border-radius: 999px; }
 #filters button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 /* 色付きの点（いつも出す） */
-#dots { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 0; }
-#dots .dot { width: 14px; height: 14px; border-radius: 4px; cursor: pointer; background: var(--line); }
-#dots .dot.done { background: var(--ok); }
-#dots .dot.hold { background: var(--warn); }
-#dots .dot.draft, #dots .dot.redo { background: var(--panel); box-shadow: inset 0 0 0 2px var(--accent); }
-#dots .dot.cur { outline: 2px solid var(--ink); outline-offset: 1px; }
+/* 進み具合のバー（全件）：決定済み・保留・書きかけ・未回答の長さで塗り分ける */
+#bar { display: flex; height: 12px; border-radius: 999px; overflow: hidden; background: var(--line); margin: 4px 0 2px; }
+#bar span { display: block; height: 100%; }
+#bar .done { background: var(--ok); }
+#bar .hold { background: var(--warn); }
+#bar .draft { background: var(--accent); opacity: .55; }
+#bartext { font-size: 12px; color: var(--sub); }
+#bartext b { color: var(--ink); font-size: 13px; }
+#bartext .k { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin: 0 3px 0 10px; vertical-align: 0; }
+/* 状態と分類のラベル（一覧・カードで同じ） */
+.tag { display: inline-block; font-size: 10.5px; line-height: 1.5; padding: 0 6px; border-radius: 4px; border: 1px solid var(--line); color: var(--sub); white-space: nowrap; }
+.tag.done { background: var(--ok-soft); border-color: var(--ok); color: var(--ok); }
+.tag.hold { background: var(--warn-soft); border-color: var(--warn); color: var(--warn); }
+.tag.draft, .tag.redo { border-color: var(--accent); border-style: dashed; color: var(--accent); }
 /* 件名付きの一覧：いつもはしまっておき、ヘッダーの三本線で左から出す */
 #listbar { font-size: 18px; line-height: 1; padding: 4px 9px; }
 #listbar[aria-expanded="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
@@ -54,13 +60,10 @@ main.listopen #side { transform: none; }
 #side .sidehead { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--sub); }
 #side .sidehead button { padding: 0 8px; }
 #list { flex: 1; overflow: auto; }
-#list .item { display: grid; grid-template-columns: 14px 1fr; gap: 8px; padding: 7px 12px; border-bottom: 1px solid var(--line); border-left: 4px solid var(--kc, transparent); font-size: 13px; line-height: 1.5; cursor: pointer; }
+#list .item { padding: 7px 12px; border-bottom: 1px solid var(--line); font-size: 13px; line-height: 1.5; cursor: pointer; }
+#list .item .tags { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; margin-bottom: 1px; }
 #list .item.cur { background: var(--accent-soft); }
 #list .no { color: var(--sub); font-size: 11px; }
-#list .mark { width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; border: 2px solid var(--line); }
-#list .item.done .mark { background: var(--ok); border-color: var(--ok); }
-#list .item.hold .mark { background: var(--warn); border-color: var(--warn); }
-#list .item.draft .mark, #list .item.redo .mark { border-color: var(--accent); border-style: dashed; }
 #checkwrap { margin-top: 4px; }
 #checkwrap summary { font-size: 12px; color: var(--sub); cursor: pointer; }
 #checkwrap summary .bad { color: var(--warn); font-weight: bold; }
@@ -69,12 +72,11 @@ main.listopen #side { transform: none; }
 #check .bad { color: var(--warn); font-weight: bold; }
 #check .good { color: var(--ok); font-weight: bold; }
 #check hr { border: 0; border-top: 1px solid var(--line); margin: 6px 0; }
-#card { border-top: 6px solid var(--kc, var(--accent)); }
+#card { border-top: 4px solid var(--accent); }
 .cbody { padding: 12px 20px 10px; }
 .meta { display: flex; gap: 10px; align-items: baseline; font-size: 12px; color: var(--sub); }
-.meta .kind { color: var(--kc, var(--accent)); font-weight: bold; }
+.meta .kind { display: flex; gap: 4px; }
 .meta .pos { margin-left: auto; }
-.meta .st { border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; }
 .title { font-size: 21px; font-weight: bold; line-height: 1.4; margin: 2px 0 0; }
 .where { font-size: 13px; color: var(--sub); }
 .lead { font-size: 16px; line-height: 1.65; margin: 8px 0 0; white-space: pre-wrap; }
@@ -149,7 +151,8 @@ textarea { width: 100%; min-height: 70px; font: inherit; padding: 6px 8px; borde
 <main id="main">
   <div class="panel strip">
     <div id="filters"></div>
-    <div id="dots" aria-label="カード（色：緑 決定済み・橙 保留・枠 書きかけ・灰 未回答）"></div>
+    <div id="bar" role="img"></div>
+    <div id="bartext"></div>
     <details id="checkwrap"><summary id="checksum"></summary><div id="check"></div></details>
   </div>
   <aside class="panel" id="side" aria-label="一覧"><div class="sidehead"><span>一覧</span><button id="sideclose" aria-label="一覧を閉じる">×</button></div><div id="list"></div></aside>
@@ -302,13 +305,18 @@ function cellText(c, shared) {
 // ボタン（両方のカードで同じ）。おすすめどおりは、おすすめの無い問いには出さない。回答を書くは、回答の欄に答えが要る
 const KINDS = [["advice", "おすすめどおり"], ["answer", "回答を書く"], ["ask", "QAに起票"], ["hold", "保留"], ["none", "不要"]];
 const KIND_ICON = { advice: "✓", answer: "✎", ask: "？", hold: "⏸", none: "✕" };
-// 区分（確認一覧）・種別（要確認事項）ごとのカードの色。無い名前は出てきた順に色を回す
-const KIND_COLOR = { "資料の食い違い": 0, "資料の書き漏れ": 1, "共通の問い": 2, "答えてもらう問い": 3, "おすすめでいいか": 4, "ふつうはこうする": 5, "業務": 3, "開発": 2, "両方": 5 };
-function kindColor(name) {
-  if (name in KIND_COLOR) return `var(--c${KIND_COLOR[name]})`;
-  const names = [...new Set(book.rows.map(r => r.v[book.lay.kind]))];
-  return `var(--c${names.indexOf(name) % 6})`;
+// 分類のラベル。絞り込みと同じ名前（要確認事項は 種別 と 資料の指摘／その他、確認一覧は 資料の指摘／共通の問い／その他）
+function groupTags(row) {
+  const v = row.v, sheet = book.lay.sheet;
+  if (sheet === "要確認事項") {
+    const g = FINDING_KINDS.includes(v["理由"]) ? FINDING_LABEL : SHAPE_KINDS.includes(v["確認の分け方"]) ? OTHER_LABEL : "";
+    return [v["種別"], g].filter(Boolean);
+  }
+  const k = v["区分"];
+  return [FINDING_KINDS.includes(k) ? FINDING_LABEL : SHAPE_KINDS.includes(k) ? OTHER_LABEL : k];
 }
+const stateTag = row => `<span class="tag ${state(row)}">${STATE_NAME[state(row)]}</span>`;
+const groupTagsHtml = row => groupTags(row).map(t => `<span class="tag">${esc(t)}</span>`).join("");
 // おすすめを、答えと末尾の括弧（根拠など）に分ける（カードに出すだけ。xlsx に書くのは adviceAnswer）
 function adviceParts(text) {
   let t = (text || "").trim().replace(/。$/, "");
@@ -569,10 +577,15 @@ function label(row) {
 
 function renderList() {
   $("list").innerHTML = visible().map(([row, i]) =>
-    `<div class="item ${state(row)} ${i === cur ? "cur" : ""}" style="--kc: ${kindColor(row.v[book.lay.kind])}" data-i="${i}" role="button" tabindex="0" aria-current="${i === cur}" aria-label="${esc(row.v["No."])}（${STATE_NAME[state(row)]}）" title="${esc(row.v["No."])}（${STATE_NAME[state(row)]}）\n${esc(label(row))}">` +
-    `<span class="mark"></span><span><span class="no">${esc(row.v["No."])}</span><br>${esc(label(row))}</span></div>`).join("");
-  $("dots").innerHTML = visible().map(([row, i]) =>
-    `<span class="dot ${state(row)} ${i === cur ? "cur" : ""}" data-i="${i}" title="${esc(row.v["No."])}（${STATE_NAME[state(row)]}）&#10;${esc(label(row))}"></span>`).join("");
+    `<div class="item ${state(row)} ${i === cur ? "cur" : ""}" data-i="${i}" role="button" tabindex="0" aria-current="${i === cur}" aria-label="${esc(row.v["No."])}（${STATE_NAME[state(row)]}）" title="${esc(row.v["No."])}（${STATE_NAME[state(row)]}）\n${esc(label(row))}">` +
+    `<div class="tags">${stateTag(row)}${groupTagsHtml(row)}<span class="no">${esc(row.v["No."])}</span></div>${esc(label(row))}</div>`).join("");
+  const c = counts(), n = c.n, ok = c.done - c.hold, pc = x => (x / n * 100).toFixed(2) + "%";
+  $("bar").innerHTML = `<span class="done" style="width:${pc(ok)}"></span><span class="hold" style="width:${pc(c.hold)}"></span>` +
+    `<span class="draft" style="width:${pc(c.drafts + c.redos)}"></span>`;
+  $("bar").setAttribute("aria-label", `決定 ${c.done} / ${n}`);
+  $("bartext").innerHTML = `<b>決定 ${c.done} / ${n}（${Math.round(c.done / n * 100)}%）</b>` +
+    `<span class="k" style="background:var(--ok)"></span>決定済み ${ok}<span class="k" style="background:var(--warn)"></span>保留 ${c.hold}` +
+    `<span class="k" style="background:var(--accent);opacity:.55"></span>書きかけ ${c.drafts + c.redos}<span class="k" style="background:var(--line)"></span>未回答 ${n - c.done - c.drafts - c.redos}`;
   const el = $("list").querySelector(".cur");
   if (el) el.scrollIntoView({ block: "nearest" });
 }
@@ -592,9 +605,8 @@ function renderCard() {
   const sub = sameAsKind ? v["項目"] : v[lay.where];
   const [lead, rest] = splitLead(v[lay.ask]);
   const [idea, why] = adviceParts(v["AI のおすすめ"]);
-  $("card").style.setProperty("--kc", kindColor(v[lay.kind]));
   html += `<div class="cbody">` +
-    `<div class="meta"><span class="kind">${esc(v[lay.kind])}</span><span>${esc(v["No."])}</span><span class="st">${STATE_NAME[state(row)]}</span>` +
+    `<div class="meta"><span class="kind">${stateTag(row)}${groupTagsHtml(row)}</span><span>${esc(v["No."])}</span>` +
     `<span class="pos">${cur + 1} / ${book.rows.length}</span></div>` +
     `<h2 class="title">${esc(title)}</h2>` + (sub && sub !== title ? `<div class="where">${esc(sub)}</div>` : "") +
     // おすすめでいいかの問いは、問いの文が AI の案と同じなので、案だけを出す
@@ -743,7 +755,6 @@ $("filters").addEventListener("click", e => {
   refresh();
 });
 $("list").addEventListener("click", e => { const it = e.target.closest(".item"); if (it) { listOpen(false); go(+it.dataset.i); } });
-$("dots").addEventListener("click", e => { const it = e.target.closest(".dot"); if (it) go(+it.dataset.i); });
 // 一覧：三本線で開け閉めする。選んだら閉じる。外を押す・Esc でも閉じる
 function listOpen(open) {
   if (!book) return;
