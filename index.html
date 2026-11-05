@@ -8,17 +8,21 @@
 :root {
   --bg: #f6f7f9; --panel: #ffffff; --ink: #1f2933; --sub: #5f6b7a; --line: #dde2e8;
   --accent: #1f4e78; --accent-soft: #e6eef6; --ok: #2f7d4f; --ok-soft: #e5f3ea; --warn: #a15c00; --warn-soft: #fbf0df;
+  --c0: #c2410c; --c1: #a16207; --c2: #7c3aed; --c3: #1d4ed8; --c4: #15803d; --c5: #0f766e;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #15191e; --panel: #1e242b; --ink: #e6e9ed; --sub: #9aa5b1; --line: #333b45;
     --accent: #7fb2e5; --accent-soft: #243443; --ok: #6cc28f; --ok-soft: #1f3328; --warn: #e0a54f; --warn-soft: #3a2d1a;
+    --c0: #fb923c; --c1: #facc15; --c2: #c4b5fd; --c3: #93c5fd; --c4: #86efac; --c5: #5eead4;
   }
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.7 "Yu Gothic UI", "Meiryo", system-ui, sans-serif; }
-header { padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--line); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-header h1 { font-size: 16px; margin: 0; }
+header { padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--line); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+header h1 { font-size: 15px; margin: 0; white-space: nowrap; }
+header button { padding: 3px 10px; font-size: 13px; white-space: nowrap; }
+@media (max-width: 760px) { header .file { display: none; } }
 header .file { color: var(--sub); font-size: 13px; }
 header .spacer { flex: 1; }
 button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
@@ -27,53 +31,106 @@ button:disabled { opacity: .45; cursor: default; }
 #drop { margin: 40px auto; max-width: 560px; padding: 40px 24px; border: 2px dashed var(--line); border-radius: 10px; text-align: center; background: var(--panel); }
 #drop.over { border-color: var(--accent); background: var(--accent-soft); }
 #drop p { margin: 6px 0; color: var(--sub); }
-main { display: none; grid-template-columns: 320px 1fr; gap: 16px; padding: 16px; max-width: 1280px; margin: 0 auto; }
+main { display: none; grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 10px 16px 16px; max-width: 1080px; margin: 0 auto; }
 main.on { display: grid; }
-@media (max-width: 800px) { main.on { grid-template-columns: 1fr; } }
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
-#check { padding: 12px 14px; margin-bottom: 12px; font-size: 13px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+.strip { padding: 8px 12px; }
+#filters { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: none; }
+#filters button { padding: 1px 10px; font-size: 12px; white-space: nowrap; border-radius: 999px; }
+#filters button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+/* 色付きの点（いつも出す） */
+/* 進み具合のバー（全件）：決定済み・保留・書きかけ・未回答の長さで塗り分ける */
+#bar { display: flex; height: 12px; border-radius: 999px; overflow: hidden; background: var(--line); margin: 4px 0 2px; }
+#bar span { display: block; height: 100%; }
+#bar .done { background: var(--ok); }
+#bar .hold { background: var(--warn); }
+#bar .draft { background: var(--accent); opacity: .55; }
+#bartext { font-size: 12px; color: var(--sub); }
+#bartext b { color: var(--ink); font-size: 13px; }
+#bartext .k { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin: 0 3px 0 10px; vertical-align: 0; }
+/* 状態と分類のラベル（一覧・カードで同じ） */
+.tag { display: inline-block; font-size: 10.5px; line-height: 1.5; padding: 0 6px; border-radius: 4px; border: 1px solid var(--line); color: var(--sub); white-space: nowrap; }
+.tag.done { background: var(--ok-soft); border-color: var(--ok); color: var(--ok); }
+.tag.hold { background: var(--warn-soft); border-color: var(--warn); color: var(--warn); }
+.tag.draft, .tag.redo { border-color: var(--accent); border-style: dashed; color: var(--accent); }
+/* 件名付きの一覧：いつもはしまっておき、ヘッダーの三本線で左から出す */
+#listbar { font-size: 18px; line-height: 1; padding: 4px 9px; }
+#listbar[aria-expanded="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+#side { position: fixed; top: 0; bottom: 0; left: 0; width: min(340px, 88vw); z-index: 20; border-radius: 0 10px 10px 0; display: flex; flex-direction: column;
+  transform: translateX(-105%); transition: transform .18s ease; box-shadow: 4px 0 18px rgba(0,0,0,.18); }
+main.listopen #side { transform: none; }
+#side .sidehead { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--sub); }
+#side .sidehead button { padding: 0 8px; }
+#list { flex: 1; overflow: auto; }
+#list .item { padding: 7px 12px; border-bottom: 1px solid var(--line); border-left: 4px solid var(--kc, transparent); font-size: 13px; line-height: 1.5; cursor: pointer; }
+#list .item .tags { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; margin-bottom: 1px; }
+#list .item.cur { background: var(--accent-soft); }
+#list .no { color: var(--sub); font-size: 11px; }
+#checkwrap { margin-top: 4px; }
+#checkwrap summary { font-size: 12px; color: var(--sub); cursor: pointer; }
+#checkwrap summary .bad { color: var(--warn); font-weight: bold; }
+#check { font-size: 12px; padding: 6px 0 2px; max-width: 420px; }
 #check .row { display: flex; justify-content: space-between; gap: 8px; }
 #check .bad { color: var(--warn); font-weight: bold; }
 #check .good { color: var(--ok); font-weight: bold; }
 #check hr { border: 0; border-top: 1px solid var(--line); margin: 6px 0; }
-#filters { display: flex; gap: 6px; padding: 10px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-#filters button { padding: 3px 10px; font-size: 13px; }
-#filters button.on { background: var(--accent-soft); border-color: var(--accent); }
-#list { max-height: calc(100vh - 380px); overflow: auto; }
-#list .item { padding: 8px 12px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 13px; display: grid; grid-template-columns: 18px 1fr; gap: 6px; }
-#list .item.cur { background: var(--accent-soft); }
-#list .item .no { color: var(--sub); font-size: 12px; }
-#list .mark { width: 10px; height: 10px; border-radius: 50%; margin-top: 6px; border: 2px solid var(--line); }
-#list .mark.done { background: var(--ok); border-color: var(--ok); }
-#list .mark.hold { background: var(--warn); border-color: var(--warn); }
-#list .mark.draft { border-color: var(--accent); border-style: dashed; }
-#complete button { margin-top: 8px; }
-#card { padding: 20px 24px; }
-.meta { display: flex; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--sub); margin-bottom: 6px; }
-.chip { background: var(--accent-soft); color: var(--accent); border-radius: 10px; padding: 1px 10px; }
-#card h2 { font-size: 15px; margin: 4px 0 10px; color: var(--sub); font-weight: normal; }
-.ask { font-size: 17px; line-height: 1.8; margin: 0 0 12px; white-space: pre-wrap; }
-.box { border-left: 3px solid var(--line); padding: 4px 12px; margin: 10px 0; white-space: pre-wrap; }
+#card { border-top: 4px solid var(--accent); }
+.cbody { padding: 12px 20px 10px; }
+.meta { display: flex; gap: 10px; align-items: baseline; font-size: 12px; color: var(--sub); }
+.meta .kind { display: flex; gap: 4px; }
+.meta .pos { margin-left: auto; }
+.title { font-size: 21px; font-weight: bold; line-height: 1.4; margin: 2px 0 0; }
+.where { font-size: 13px; color: var(--sub); }
+.lead { font-size: 16px; line-height: 1.65; margin: 8px 0 0; white-space: pre-wrap; }
+.rest { font-size: 13px; line-height: 1.7; color: var(--sub); white-space: pre-wrap; margin: 2px 0 0; }
+.idea { margin: 10px 0 0; padding: 8px 14px; border-radius: 8px; background: var(--ok-soft); }
+.idea .tag { font-size: 11px; color: var(--ok); font-weight: bold; }
+.idea .main { font-size: 17px; font-weight: bold; line-height: 1.5; white-space: pre-wrap; }
+.idea .why { font-size: 12px; line-height: 1.6; color: var(--sub); white-space: pre-wrap; margin-top: 2px; }
+.how { margin: 10px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--sub); white-space: pre-wrap; padding-left: 10px; border-left: 3px solid var(--line); }
+.how b { display: block; color: var(--ink); font-size: 11px; }
+.seen { margin: 10px 0 0; padding: 6px 12px; border-radius: 8px; background: var(--accent-soft); font-size: 14px; line-height: 1.6; }
+.seen b { color: var(--accent); font-size: 11px; margin-right: 8px; }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+.compare > div { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; min-width: 0; }
+.compare h3 { margin: 0 0 4px; font-size: 11px; color: var(--sub); font-weight: bold; }
+.quote { font-size: 12px; line-height: 1.6; white-space: pre-wrap; margin: 0 0 6px; padding-left: 8px; border-left: 3px solid var(--line); }
+.quote .src { display: block; font-size: 10.5px; color: var(--sub); }
+.compare .none { font-size: 12px; color: var(--sub); }
+.compare img { max-width: 100%; border: 1px solid var(--line); border-radius: 4px; display: block; margin-top: 4px; }
+.box { border-left: 3px solid var(--line); padding: 4px 12px; margin: 6px 0; white-space: pre-wrap; font-size: 13px; }
 .box b { display: block; font-size: 12px; color: var(--sub); }
 .box.advice { border-color: var(--ok); background: var(--ok-soft); }
-details { margin: 10px 0; }
-summary { cursor: pointer; color: var(--sub); font-size: 13px; }
-.answer { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
-.answer label { display: block; font-size: 12px; color: var(--sub); margin: 10px 0 4px; }
-.answer label.check { display: flex; gap: 6px; align-items: center; font-size: 14px; color: var(--ink); }
-.results { display: flex; gap: 8px; flex-wrap: wrap; }
+details { margin: 6px 0 0; }
+summary { cursor: pointer; color: var(--sub); font-size: 12px; }
+.answer { position: sticky; bottom: 0; background: var(--panel); border-top: 1px solid var(--line); border-radius: 0 0 10px 10px; padding: 8px 16px 10px; box-shadow: 0 -6px 12px -10px rgba(0,0,0,.25); }
+.answer label { display: block; font-size: 12px; color: var(--sub); margin: 6px 0 2px; }
+.answer label[for=memo] { display: none; }
+.results { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 6px; }
+.results button { padding: 5px 6px; border-radius: 8px; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; line-height: 1.3; white-space: nowrap; }
+.results button .ic { font-size: 15px; font-weight: bold; }
+.results button .key { font-size: 10px; color: var(--sub); border: 1px solid var(--line); border-radius: 3px; padding: 0 3px; line-height: 1.3; }
 .results button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
-textarea { width: 100%; min-height: 90px; font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
+.results button[data-kind="advice"].on { background: var(--ok); border-color: var(--ok); }
+.results button.on .key { color: inherit; opacity: .8; }
+.results button.on * { pointer-events: none; }
+.results button * { pointer-events: none; }
+textarea { width: 100%; min-height: 70px; font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
+#memo { min-height: 32px; height: 32px; margin-top: 6px; resize: vertical; }
+#memo:focus, #memo.has { height: 72px; }
 #notice:empty { display: none; }
-#notice { max-width: 1280px; margin: 12px auto 0; padding: 10px 16px; border: 1px solid var(--accent); border-radius: 8px; background: var(--accent-soft); white-space: pre-wrap; }
+#notice { max-width: 860px; margin: 10px auto 0; padding: 10px 16px; border: 1px solid var(--accent); border-radius: 8px; background: var(--accent-soft); white-space: pre-wrap; }
 #notice button { margin: 8px 8px 0 0; }
-.nav { display: flex; justify-content: space-between; margin-top: 16px; }
+.nav { display: flex; gap: 8px; margin-top: 6px; }
+.nav #decide, .nav #redo { flex: 1; padding: 5px; font-size: 14px; }
 .changed { color: var(--warn); font-size: 12px; }
 .hint { font-size: 12px; color: var(--sub); }
 </style>
 </head>
 <body>
 <header>
+  <button id="listbar" aria-label="一覧" aria-expanded="false" aria-controls="side" title="一覧">☰</button>
   <h1>確認一覧カード</h1>
   <span class="file" id="fname"></span>
   <span class="spacer"></span>
@@ -86,20 +143,21 @@ textarea { width: 100%; min-height: 90px; font: inherit; padding: 8px; border: 1
 <div id="drop">
   <p><b>受け入れ基準と要確認事項か、確認一覧の xlsx を、ここに置くか選んでください</b></p>
   <p>ファイルはこのパソコンの中だけで読みます（どこにも送りません）</p>
-  <p><label for="pick">xlsx ファイルを選ぶ</label> <input type="file" id="pick" accept=".xlsx" aria-label="xlsx ファイルを選ぶ"></p>
+  <p>補足（&lt;機能名&gt;_補足.json）があれば、一緒に選ぶか置いてください</p>
+  <p><label for="pick">xlsx ファイルを選ぶ</label> <input type="file" id="pick" accept=".xlsx,.json" multiple aria-label="xlsx ファイルを選ぶ"></p>
   <p id="status" style="color: var(--warn); font-weight: bold;">このページは今、動いていません。Edge か Chrome で開き直してください（Claude のアプリの中では動きません）。</p>
 </div>
 
 <div id="notice" role="status" aria-live="polite"></div>
 
 <main id="main">
-  <aside>
-    <div class="panel" id="check"></div>
-    <div class="panel">
-      <div id="filters"></div>
-      <div id="list"></div>
-    </div>
-  </aside>
+  <div class="panel strip">
+    <div id="filters"></div>
+    <div id="bar" role="img"></div>
+    <div id="bartext"></div>
+    <details id="checkwrap"><summary id="checksum"></summary><div id="check"></div></details>
+  </div>
+  <aside class="panel" id="side" aria-label="一覧"><div class="sidehead"><span>一覧</span><button id="sideclose" aria-label="一覧を閉じる">×</button></div><div id="list"></div></aside>
   <section class="panel" id="card"></section>
 </main>
 
@@ -109,6 +167,10 @@ const COVER = "表紙";
 const AI_RULE = "AI が補った業務の決まり";
 // 要確認事項のシートに入る、業務に確かめてもらう指摘事項（確認一覧と同じ No. の行）
 const FINDING_KINDS = ["資料の食い違い", "資料の書き漏れ"];
+const FINDING_LABEL = "資料の指摘";
+// 確認一覧の形（答えてもらう問い・おすすめでいいか・ふつうはこうする）は、絞り込みでは「その他」の1つにまとめる（カードの中には区分を出す）
+const SHAPE_KINDS = ["答えてもらう問い", "おすすめでいいか", "ふつうはこうする"];
+const OTHER_LABEL = "その他";   // 絞り込みでは、食い違いと書き漏れを1つにまとめる
 const num = (text, re) => { const m = text.match(re); return m ? +m[1] : null; };
 
 // 読めるシートの形。どちらも1行ごとに 確認結果・回答・備考・QA起票文 を書く
@@ -117,10 +179,10 @@ const LAYOUTS = [
   {
     sheet: "要確認事項", kind: "種別", ask: "確認内容", where: "理由", edit: EDIT,
     more: ["確認の分け方", "共通の問い", "機能要件詳細の記載", "テーブル定義・現行・開発環境の記載", "関係する受け入れ基準"],
-    // 業務・開発の分、資料の指摘事項、確認の分け方（ある機能だけ）で絞れる
+    // 業務・開発の分と、資料の指摘・その他（確認の分け方が付いた行。ある機能だけ）で絞れる
     filters: rows => [["業務の分", r => r.v["種別"] !== "開発"], ["開発の分", r => r.v["種別"] !== "業務"],
-      ...FINDING_KINDS.filter(k => rows.some(r => r.v["理由"] === k)).map(k => [k, r => r.v["理由"] === k]),
-      ...[...new Set(rows.map(r => r.v["確認の分け方"]).filter(Boolean))].map(k => [k, r => r.v["確認の分け方"] === k])],
+      ...(rows.some(r => FINDING_KINDS.includes(r.v["理由"])) ? [[FINDING_LABEL, r => FINDING_KINDS.includes(r.v["理由"])]] : []),
+      ...(rows.some(r => SHAPE_KINDS.includes(r.v["確認の分け方"])) ? [[OTHER_LABEL, r => SHAPE_KINDS.includes(r.v["確認の分け方"])]] : [])],
     // 表紙の「件数」の行：要確認事項 n 件（業務 a・開発 b。両方は両方に数える）・…・AI が補った業務の決まり c・資料の食い違い d・資料の書き漏れ e
     check: (rows, cover) => {
       const line = cover.find(t => t.includes("要確認事項") && / 件/.test(t) && t.includes("業務 ")) || "";
@@ -137,7 +199,9 @@ const LAYOUTS = [
   {
     sheet: "確認一覧", kind: "区分", ask: "確かめてほしいこと", where: "どこのことか", edit: EDIT,
     more: ["資料・開発環境の記載", "関係する AC"],
-    filters: rows => [...new Set(rows.map(r => r.v["区分"]))].map(k => [k, r => r.v["区分"] === k]),
+    filters: rows => [...new Set(rows.map(r => FINDING_KINDS.includes(r.v["区分"]) ? FINDING_LABEL : SHAPE_KINDS.includes(r.v["区分"]) ? OTHER_LABEL : r.v["区分"]))]
+      .sort((a, b) => (a === OTHER_LABEL) - (b === OTHER_LABEL))
+      .map(k => [k, k === FINDING_LABEL ? r => FINDING_KINDS.includes(r.v["区分"]) : k === OTHER_LABEL ? r => SHAPE_KINDS.includes(r.v["区分"]) : r => r.v["区分"] === k]),
     // 表紙の「この資料」の行：区分ごとに「<区分> <n> 件」
     check: (rows, cover) => {
       const line = cover.find(t => / \d+ 件・/.test(t)) || "";
@@ -153,7 +217,8 @@ const LAYOUTS = [
   },
 ];
 
-let book = null;   // { zip, name, lay, sheets, heads, rows, cover, added, headStyle }
+let book = null;
+let supp = {};   // 補足（<機能名>_補足.json）：{ No.: { 原文: [{出典, 文}], 所見, 画像: [{説明, src}] } }。このパソコンの中だけで読む   // { zip, name, lay, sheets, heads, rows, cover, added, headStyle }
 let cur = 0, filter = "すべて";
 
 // ---------- zip（xlsx の入れ物）。外の部品を使わず、ブラウザの機能だけで読み書きする ----------
@@ -241,6 +306,58 @@ function cellText(c, shared) {
 
 // ボタン（両方のカードで同じ）。おすすめどおりは、おすすめの無い問いには出さない。回答を書くは、回答の欄に答えが要る
 const KINDS = [["advice", "おすすめどおり"], ["answer", "回答を書く"], ["ask", "QAに起票"], ["hold", "保留"], ["none", "不要"]];
+const KIND_ICON = { advice: "✓", answer: "✎", ask: "？", hold: "⏸", none: "✕" };
+// 一覧の左端の色：区分（確認一覧）・種別（要確認事項）ごと。無い名前は出てきた順に色を回す
+const KIND_COLOR = { "資料の食い違い": 0, "資料の書き漏れ": 1, "共通の問い": 2, "答えてもらう問い": 3, "おすすめでいいか": 4, "ふつうはこうする": 5, "業務": 3, "開発": 2, "両方": 5 };
+function kindColor(name) {
+  if (name in KIND_COLOR) return `var(--c${KIND_COLOR[name]})`;
+  const names = [...new Set(book.rows.map(r => r.v[book.lay.kind]))];
+  return `var(--c${names.indexOf(name) % 6})`;
+}
+// 分類のラベル。絞り込みと同じ名前（要確認事項は 種別 と 資料の指摘／その他、確認一覧は 資料の指摘／共通の問い／その他）
+function groupTags(row) {
+  const v = row.v, sheet = book.lay.sheet;
+  if (sheet === "要確認事項") {
+    const g = FINDING_KINDS.includes(v["理由"]) ? FINDING_LABEL : SHAPE_KINDS.includes(v["確認の分け方"]) ? OTHER_LABEL : "";
+    return [v["種別"], g].filter(Boolean);
+  }
+  const k = v["区分"];
+  return [FINDING_KINDS.includes(k) ? FINDING_LABEL : SHAPE_KINDS.includes(k) ? OTHER_LABEL : k];
+}
+const stateTag = row => `<span class="tag ${state(row)}">${STATE_NAME[state(row)]}</span>`;
+const groupTagsHtml = row => groupTags(row).map(t => `<span class="tag">${esc(t)}</span>`).join("");
+// おすすめを、答えと末尾の括弧（根拠など）に分ける（カードに出すだけ。xlsx に書くのは adviceAnswer）
+function adviceParts(text) {
+  let t = (text || "").trim().replace(/。$/, "");
+  const notes = [];
+  while (t.endsWith("）")) {
+    const a = adviceAnswer(t);
+    if (a === t) break;
+    notes.unshift(t.slice(a.length).replace(/^（|）$/g, ""));
+    t = a.trim();
+  }
+  return [t, notes];
+}
+// 補足：所見の1行と、資料の原文・現行や開発環境を左右に並べる（補足の無い行は何も出さない）
+function suppHtml(v) {
+  const s = supp[v["No."]];
+  if (!s) return "";
+  const seen = book.lay.sheet === "要確認事項" ? v["テーブル定義・現行・開発環境の記載"] : v["資料・開発環境の記載"];
+  const real = seen && seen !== "－" && book.lay.sheet === "要確認事項" ? seen : "";
+  const quotes = (s["原文"] || []).map(q => `<p class="quote"><span class="src">${esc(q["出典"])}</span>${esc(q["文"])}</p>`).join("")
+    || `<p class="none">本文に書いていない</p>`;
+  const imgs = (s["画像"] || []).map(m => `<img src="${esc(m.src)}" alt="${esc(m["説明"] || "")}"><span class="none">${esc(m["説明"] || "")}</span>`).join("");
+  return (s["所見"] ? `<div class="seen"><b>所見</b>${esc(s["所見"])}</div>` : "") +
+    `<div class="compare" ${real || imgs ? "" : 'style="grid-template-columns: 1fr"'}><div><h3>資料の原文</h3>${quotes}</div>` +
+    (real || imgs ? `<div><h3>現行・開発環境</h3>${real ? `<p class="quote">${esc(real)}</p>` : ""}${imgs}</div>` : "") + `</div>`;
+}
+const same = (a, b) => !!b && (a || "").trim().replace(/。$/, "") === b.trim();
+// 問いの最初の1文と残り
+function splitLead(text) {
+  const t = (text || "").trim(), m = t.match(/^[^。\n]*[。]?/);
+  const lead = m ? m[0] : t;
+  return [lead, t.slice(lead.length).trim()];
+}
 // 確認一覧の確認結果に書く値（前の作りの値も読めるようにする）
 const RESULT_OF = { advice: "妥当", answer: "回答", ask: "QAに起票", hold: "保留", none: "不要" };
 const KIND_OF = { "妥当": "advice", "回答": "answer", "違う": "answer", "QAに起票": "ask", "お客様に確認": "ask", "保留": "hold", "持ち帰り": "hold", "不要": "none" };
@@ -430,8 +547,8 @@ function visible() {
   return book.rows.map((r, i) => [r, i]).filter(([r]) => pass(r));
 }
 
-function counts() {
-  const rs = book.rows, dec = rs.filter(r => r.decided);
+function counts(rs = book.rows) {
+  const dec = rs.filter(r => r.decided);
   return {
     n: rs.length, done: dec.length, drafts: rs.filter(r => state(r) === "draft").length, redos: rs.filter(r => state(r) === "redo").length,
     hold: dec.filter(r => savedKind(r) === "hold").length, ask: dec.filter(r => savedKind(r) === "ask").length,
@@ -454,19 +571,31 @@ function renderCheck() {
     `<div class="row"><span>　うち保留</span><b>${hold}</b></div>` +
     `<div class="row"><span>　うちQAに起票</span><b>${ask}</b></div>`;
   $("progress").textContent = `決定 ${done} / ${n}`;
+  $("checksum").innerHTML = `件数の点検：<span class="${ok ? "" : "bad"}">${ok ? "表紙と合っている" : "表紙と合っていない"}</span>` +
+    `・書きかけ <span class="${drafts ? "bad" : ""}">${drafts}</span>・保留 ${hold}・QAに起票 ${ask}` + (redos ? `・<span class="bad">決め直し中 ${redos}</span>` : "");
+  if (!ok) $("checkwrap").open = true;
   $("filters").innerHTML = filters().map(([k]) => `<button data-f="${esc(k)}" class="${k === filter ? "on" : ""}" aria-pressed="${k === filter}">${esc(k)}</button>`).join("");
 }
 
 function label(row) {
   const item = row.v["項目"];
-  const text = item && !item.startsWith(row.v[book.lay.kind]) ? item : row.v[book.lay.ask];
+  const generic = !item || item.startsWith(row.v[book.lay.kind]) || (row.v["理由"] && item.startsWith(row.v["理由"])) || FINDING_KINDS.some(k => item.startsWith(k));
+  const text = generic ? splitLead(row.v[book.lay.ask])[0] : item;
   return text.length > 34 ? text.slice(0, 34) + "…" : text;
 }
 
 function renderList() {
   $("list").innerHTML = visible().map(([row, i]) =>
-    `<div class="item ${i === cur ? "cur" : ""}" data-i="${i}" role="button" tabindex="0" aria-current="${i === cur}" aria-label="${esc(row.v["No."])}（${STATE_NAME[state(row)]}）"><span class="mark ${state(row) === "redo" ? "draft" : state(row)}"></span>` +
-    `<span><span class="no">${esc(row.v["No."])}</span><br>${esc(label(row))}</span></div>`).join("");
+    `<div class="item ${state(row)} ${i === cur ? "cur" : ""}" style="--kc: ${kindColor(row.v[book.lay.kind])}" data-i="${i}" role="button" tabindex="0" aria-current="${i === cur}" aria-label="${esc(row.v["No."])}（${STATE_NAME[state(row)]}）" title="${esc(row.v["No."])}（${STATE_NAME[state(row)]}）\n${esc(label(row))}">` +
+    `<div class="tags">${stateTag(row)}${groupTagsHtml(row)}<span class="no">${esc(row.v["No."])}</span></div>${esc(label(row))}</div>`).join("");
+  // 絞り込んでいれば、絞り込んだ行だけの進み具合
+  const c = counts(visible().map(([r]) => r)), n = Math.max(c.n, 1), ok = c.done - c.hold, pc = x => (x / n * 100).toFixed(2) + "%";
+  $("bar").innerHTML = `<span class="done" style="width:${pc(ok)}"></span><span class="hold" style="width:${pc(c.hold)}"></span>` +
+    `<span class="draft" style="width:${pc(c.drafts + c.redos)}"></span>`;
+  $("bar").setAttribute("aria-label", `決定 ${c.done} / ${c.n}`);
+  $("bartext").innerHTML = (filter !== "すべて" ? `${esc(filter)}：` : "") + `<b>決定 ${c.done} / ${c.n}（${Math.round(c.done / n * 100)}%）</b>` +
+    `<span class="k" style="background:var(--ok)"></span>決定済み ${ok}<span class="k" style="background:var(--warn)"></span>保留 ${c.hold}` +
+    `<span class="k" style="background:var(--accent);opacity:.55"></span>書きかけ ${c.drafts + c.redos}<span class="k" style="background:var(--line)"></span>未回答 ${c.n - c.done - c.drafts - c.redos}`;
   const el = $("list").querySelector(".cur");
   if (el) el.scrollIntoView({ block: "nearest" });
 }
@@ -481,30 +610,38 @@ function renderCard() {
       `${c.n} 行のうち、おすすめどおり ${c.advice}・QAに起票 ${c.ask}・保留 ${c.hold}・そのほか ${c.n - c.advice - c.ask - c.hold}` +
       `\n<button class="primary" id="saveDone">答えを入れた xlsx を保存</button></div>`;
   }
-  html +=
-    `<div class="meta"><span>${esc(v["No."])}</span><span class="chip">${esc(v[lay.kind])}</span><span>${cur + 1} / ${book.rows.length}</span>` +
-    `<span class="chip">${STATE_NAME[state(row)]}</span></div>` +
-    `<h2>${esc(v["項目"])}${v[lay.where] ? "（" + esc(v[lay.where]) + "）" : ""}</h2>` +
-    `<p class="ask">${esc(v[lay.ask])}</p>` +
-    (v["AI のおすすめ"] ? `<div class="box advice"><b>AI のおすすめ</b>${esc(v["AI のおすすめ"])}</div>` : "") +
-    (v["確かめ方"] ? `<div class="box"><b>確かめ方</b>${esc(v["確かめ方"])}</div>` : "") +
-    extra.map(h => `<details><summary>${esc(h)}</summary><div class="box">${esc(v[h])}</div></details>`).join("");
+  const sameAsKind = !v["項目"] || v["項目"].startsWith(v[lay.kind]);
+  const title = sameAsKind ? (v[lay.where] || v[lay.kind]) : v["項目"];
+  const sub = sameAsKind ? v["項目"] : v[lay.where];
+  const [lead, rest] = splitLead(v[lay.ask]);
+  const [idea, why] = adviceParts(v["AI のおすすめ"]);
+  html += `<div class="cbody">` +
+    `<div class="meta"><span class="kind">${stateTag(row)}${groupTagsHtml(row)}</span><span>${esc(v["No."])}</span>` +
+    `<span class="pos">${cur + 1} / ${book.rows.length}</span></div>` +
+    `<h2 class="title">${esc(title)}</h2>` + (sub && sub !== title ? `<div class="where">${esc(sub)}</div>` : "") +
+    // おすすめでいいかの問いは、問いの文が AI の案と同じなので、案だけを出す
+    (same(v[lay.ask], idea) ? "" : `<p class="lead">${esc(lead)}</p>` + (rest ? `<p class="rest">${esc(rest)}</p>` : "")) +
+    (idea ? `<div class="idea"><div class="tag">AI の案</div><div class="main">${esc(idea)}</div>` +
+      (why.length ? `<div class="why">${esc(why.join("\n"))}</div>` : "") + `</div>` : "") +
+    suppHtml(v) +
+    (v["確かめ方"] ? `<div class="how"><b>確かめ方</b>${esc(v["確かめ方"])}</div>` : "") +
+    extra.map(h => `<details><summary>${esc(h)}</summary><div class="box">${esc(v[h])}</div></details>`).join("") +
+    `</div>`;
   const k = nowKind(row), ro = locked ? "readonly" : "";
   html += `<div class="answer"><div class="results">` +
     KINDS.filter(([key]) => key !== "advice" || v["AI のおすすめ"])   // おすすめの無い問いには、おすすめどおりを出さない
-      .map(([key, name]) => `<button data-kind="${key}" class="${k === key ? "on" : ""}" aria-pressed="${k === key}" ${locked ? "disabled" : ""}>${esc(name)}</button>`).join("") +
+      .map(([key, name]) => `<button data-kind="${key}" class="${k === key ? "on" : ""}" aria-pressed="${k === key}" aria-label="${esc(name)}" ${locked ? "disabled" : ""}>` +
+        `<span class="ic">${KIND_ICON[key]}</span><span>${esc(name)}</span><span class="key">${KINDS.findIndex(([x]) => x === key) + 1}</span></button>`).join("") +
     `</div>` +
     (k === "advice" ? `<div class="box advice"><b>回答</b>${esc(adviceAnswer(v["AI のおすすめ"]))}</div>` : "") +
     (k === "answer" ? `<label for="ans">回答</label><textarea id="ans" ${ro}></textarea>` : "") +
     (k === "ask" ? `<label for="qa">起票する質問の文（直せます）</label><textarea id="qa" rows="4" ${ro}></textarea>` : "") +
-    `<label for="memo">備考</label><textarea id="memo" ${ro}></textarea>` +
-    (!locked && !k && savedKind(row) ? `<div class="box">ボタンを全部外して決定すると、前に決めた答え（${esc(row.saved["確認結果"])}）を消して未回答に戻します</div>` : "") +
-    `<p class="hint">決定した答えだけを、確認結果・回答・備考・QA起票文の列に書きます。ほかの列は変えません。</p></div>`;
+    `<label for="memo">備考</label><textarea id="memo" placeholder="備考（どのボタンでも書けます）" ${ro}></textarea>` +
+    (!locked && !k && savedKind(row) ? `<div class="box">ボタンを全部外して決定すると、前に決めた答え（${esc(row.saved["確認結果"])}）を消して未回答に戻します</div>` : "");
   const shown = visible().map(([, i]) => i), at = shown.indexOf(cur);
-  html += `<div class="nav"><button id="prev" ${at === 0 ? "disabled" : ""}>← 前へ</button>` +
-    (locked ? `<button id="redo">決め直す</button>` : `<button class="primary" id="decide" ${canDecide(row) ? "" : "disabled"}>${!k && savedKind(row) ? "答えを消す" : "決定して次へ"}</button>`) +
-    `<button id="next" ${at === shown.length - 1 ? "disabled" : ""}>次へ →</button></div>` +
-    `<p class="hint" style="text-align:center">キーボードの ← → でも送れます</p>`;
+  html += `<div class="nav"><button id="prev" ${at === 0 ? "disabled" : ""} title="←">←</button>` +
+    (locked ? `<button id="redo">決め直す</button>` : `<button class="primary" id="decide" ${canDecide(row) ? "" : "disabled"} title="Enter">${!k && savedKind(row) ? "答えを消す" : "決定して次へ"}</button>`) +
+    `<button id="next" ${at === shown.length - 1 ? "disabled" : ""} title="→">→</button></div></div>`;
   $("card").innerHTML = html;
   // 文字は value で入れる（HTML として読ませない）。回答・起票する質問の文・備考の欄は、列の値に入れる
   if (k === "ask" && !locked && !v["QA起票文"]) v["QA起票文"] = v[lay.ask];   // 初めは業務向けの問いの文
@@ -512,6 +649,7 @@ function renderCard() {
     if (!$(id)) continue;
     $(id).value = v[key] ?? "";
     $(id).addEventListener("input", e => { v[key] = e.target.value; inputChanged(); });
+    if (id === "memo" && v[key]) $(id).classList.add("has");
   }
 }
 
@@ -605,11 +743,20 @@ async function openFile(file) {
 if (!("DecompressionStream" in window)) status("このブラウザでは動きません。新しい Edge か Chrome で開いてください。", true);
 else status("動いています。xlsx を選んでください。");
 
-$("pick").addEventListener("change", e => e.target.files[0] && openFile(e.target.files[0]));
+async function openFiles(files) {
+  const list = [...files];
+  for (const f of list.filter(f => /\.json$/i.test(f.name))) {
+    try { supp = JSON.parse(await f.text()).items || {}; } catch (e) { status(`補足を読めませんでした：${e.message}`, true); }
+  }
+  const x = list.find(f => /\.xlsx$/i.test(f.name));
+  if (x) await openFile(x);
+  else if (book) refresh();
+}
+$("pick").addEventListener("change", e => openFiles(e.target.files));
 const drop = $("drop");
 drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
 drop.addEventListener("dragleave", () => drop.classList.remove("over"));
-drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); e.dataTransfer.files[0] && openFile(e.dataTransfer.files[0]); });
+drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); openFiles(e.dataTransfer.files); });
 $("filters").addEventListener("click", e => {
   if (e.target.dataset.f === undefined) return;
   filter = e.target.dataset.f;
@@ -617,13 +764,27 @@ $("filters").addEventListener("click", e => {
   if (shown.length && !shown.some(([, i]) => i === cur)) cur = shown[0][1];
   refresh();
 });
-$("list").addEventListener("click", e => { const it = e.target.closest(".item"); if (it) go(+it.dataset.i); });
+$("list").addEventListener("click", e => { const it = e.target.closest(".item"); if (it) { listOpen(false); go(+it.dataset.i); } });
+// 一覧：三本線で開け閉めする。選んだら閉じる。外を押す・Esc でも閉じる
+function listOpen(open) {
+  if (!book) return;
+  $("main").classList.toggle("listopen", open);
+  $("listbar").setAttribute("aria-expanded", open);
+  if (open) $("list").querySelector(".cur")?.scrollIntoView({ block: "center" });
+}
+$("listbar").addEventListener("click", () => listOpen(!$("main").classList.contains("listopen")));
+$("sideclose").addEventListener("click", () => listOpen(false));
+document.addEventListener("click", e => { if ($("main").classList.contains("listopen") && !e.target.closest("#side, #listbar")) listOpen(false); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") listOpen(false); });
 $("list").addEventListener("keydown", e => { const it = e.target.closest(".item"); if (it && e.key === "Enter") go(+it.dataset.i); });
 $("card").addEventListener("click", e => {
-  if (e.target.dataset.kind !== undefined) {   // もう一度押すと外す
-    const row = book.rows[cur], k = e.target.dataset.kind;
+  const kb = e.target.closest("[data-kind]");
+  if (kb) {   // もう一度押すと外す
+    const row = book.rows[cur], k = kb.dataset.kind;
     row.v["確認結果"] = nowKind(row) === k ? "" : RESULT_OF[k];
     refresh();
+    const f = $({ answer: "ans", ask: "qa" }[nowKind(row)]);
+    if (f) f.focus();
   }
   if (e.target.id === "decide") decide(cur);
   if (e.target.id === "redo") redo(cur);
@@ -650,7 +811,10 @@ const typing = el => el && (el.tagName === "TEXTAREA" || el.tagName === "INPUT")
 document.addEventListener("keydown", e => {
   if (!book || typing(document.activeElement) || e.ctrlKey || e.altKey || e.metaKey) return;
   const d = { ArrowLeft: -1, ArrowRight: 1 }[e.key];
-  if (d) { e.preventDefault(); step(d); }
+  if (d) { e.preventDefault(); step(d); return; }
+  const b = /^[1-5]$/.test(e.key) && $("card").querySelector(`[data-kind="${KINDS[+e.key - 1][0]}"]`);
+  if (/^[1-5]$/.test(e.key) && b && !b.disabled) { e.preventDefault(); b.click(); return; }
+  if (e.key === "Enter" && !e.target.closest?.("button, .item, summary") && $("decide") && !$("decide").disabled) { e.preventDefault(); $("decide").click(); }
 });
 $("save").addEventListener("click", async () => {
   const ch = changes();
