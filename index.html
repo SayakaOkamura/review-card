@@ -218,7 +218,7 @@ const LAYOUTS = [
 ];
 
 let book = null;
-let supp = {};   // 補足（<機能名>_補足.json）：{ No.: { 原文: [{出典, 文}], 所見, 画像: [{説明, src}] } }。このパソコンの中だけで読む   // { zip, name, lay, sheets, heads, rows, cover, added, headStyle }
+let supp = {};   // 補足の json そのもの（items：要確認事項のシート、確認一覧：確認一覧のシート）   // 補足（<機能名>_補足.json）：{ No.: { 原文: [{出典, 文}], 所見, 画像: [{説明, src}] } }。このパソコンの中だけで読む   // { zip, name, lay, sheets, heads, rows, cover, added, headStyle }
 let cur = 0, filter = "すべて";
 
 // ---------- zip（xlsx の入れ物）。外の部品を使わず、ブラウザの機能だけで読み書きする ----------
@@ -340,7 +340,8 @@ function adviceParts(text) {
 }
 // 補足：所見の1行と、資料の原文・現行や開発環境を左右に並べる（補足の無い行は何も出さない）
 function suppHtml(v) {
-  const s = supp[v["No."]];
+  // 確認一覧のシートは「確認一覧」の側を引く（答えてもらう問いの行の No. が、要確認事項のシートの No. と同じ文字になるため）
+  const s = ((book.lay.sheet === "確認一覧" && supp["確認一覧"]) || supp.items || {})[v["No."]];
   if (!s) return "";
   const seen = book.lay.sheet === "要確認事項" ? v["テーブル定義・現行・開発環境の記載"] : v["資料・開発環境の記載"];
   const real = seen && seen !== "－" && book.lay.sheet === "要確認事項" ? seen : "";
@@ -746,7 +747,7 @@ else status("動いています。xlsx を選んでください。");
 async function openFiles(files) {
   const list = [...files];
   for (const f of list.filter(f => /\.json$/i.test(f.name))) {
-    try { supp = JSON.parse(await f.text()).items || {}; } catch (e) { status(`補足を読めませんでした：${e.message}`, true); }
+    try { supp = JSON.parse(await f.text()); } catch (e) { status(`補足を読めませんでした：${e.message}`, true); }
   }
   const x = list.find(f => /\.xlsx$/i.test(f.name));
   if (x) await openFile(x);
