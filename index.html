@@ -8,17 +8,21 @@
 :root {
   --bg: #f6f7f9; --panel: #ffffff; --ink: #1f2933; --sub: #5f6b7a; --line: #dde2e8;
   --accent: #1f4e78; --accent-soft: #e6eef6; --ok: #2f7d4f; --ok-soft: #e5f3ea; --warn: #a15c00; --warn-soft: #fbf0df;
+  --c0: #c2410c; --c1: #a16207; --c2: #7c3aed; --c3: #1d4ed8; --c4: #15803d; --c5: #0f766e;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #15191e; --panel: #1e242b; --ink: #e6e9ed; --sub: #9aa5b1; --line: #333b45;
     --accent: #7fb2e5; --accent-soft: #243443; --ok: #6cc28f; --ok-soft: #1f3328; --warn: #e0a54f; --warn-soft: #3a2d1a;
+    --c0: #fb923c; --c1: #facc15; --c2: #c4b5fd; --c3: #93c5fd; --c4: #86efac; --c5: #5eead4;
   }
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.7 "Yu Gothic UI", "Meiryo", system-ui, sans-serif; }
-header { padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--line); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-header h1 { font-size: 16px; margin: 0; }
+header { padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--line); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+header h1 { font-size: 15px; margin: 0; white-space: nowrap; }
+header button { padding: 3px 10px; font-size: 13px; white-space: nowrap; }
+@media (max-width: 760px) { header .file { display: none; } }
 header .file { color: var(--sub); font-size: 13px; }
 header .spacer { flex: 1; }
 button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
@@ -27,47 +31,68 @@ button:disabled { opacity: .45; cursor: default; }
 #drop { margin: 40px auto; max-width: 560px; padding: 40px 24px; border: 2px dashed var(--line); border-radius: 10px; text-align: center; background: var(--panel); }
 #drop.over { border-color: var(--accent); background: var(--accent-soft); }
 #drop p { margin: 6px 0; color: var(--sub); }
-main { display: none; grid-template-columns: 320px 1fr; gap: 16px; padding: 16px; max-width: 1280px; margin: 0 auto; }
-main.on { display: grid; }
-@media (max-width: 800px) { main.on { grid-template-columns: 1fr; } }
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
-#check { padding: 12px 14px; margin-bottom: 12px; font-size: 13px; }
+main { display: none; flex-direction: column; gap: 10px; padding: 10px 16px 16px; max-width: 860px; margin: 0 auto; }
+main.on { display: flex; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+.strip { padding: 8px 12px; }
+#filters { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: none; }
+#filters button { padding: 1px 10px; font-size: 12px; white-space: nowrap; border-radius: 999px; }
+#filters button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+#list { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 0; }
+#list .item { width: 14px; height: 14px; border-radius: 4px; cursor: pointer; background: var(--line); }
+#list .item.done { background: var(--ok); }
+#list .item.hold { background: var(--warn); }
+#list .item.draft, #list .item.redo { background: var(--panel); box-shadow: inset 0 0 0 2px var(--accent); }
+#list .item.cur { outline: 2px solid var(--ink); outline-offset: 1px; }
+#checkwrap { margin-top: 4px; }
+#checkwrap summary { font-size: 12px; color: var(--sub); cursor: pointer; }
+#checkwrap summary .bad { color: var(--warn); font-weight: bold; }
+#check { font-size: 12px; padding: 6px 0 2px; max-width: 420px; }
 #check .row { display: flex; justify-content: space-between; gap: 8px; }
 #check .bad { color: var(--warn); font-weight: bold; }
 #check .good { color: var(--ok); font-weight: bold; }
 #check hr { border: 0; border-top: 1px solid var(--line); margin: 6px 0; }
-#filters { display: flex; gap: 6px; padding: 10px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-#filters button { padding: 3px 10px; font-size: 13px; }
-#filters button.on { background: var(--accent-soft); border-color: var(--accent); }
-#list { max-height: calc(100vh - 380px); overflow: auto; }
-#list .item { padding: 8px 12px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 13px; display: grid; grid-template-columns: 18px 1fr; gap: 6px; }
-#list .item.cur { background: var(--accent-soft); }
-#list .item .no { color: var(--sub); font-size: 12px; }
-#list .mark { width: 10px; height: 10px; border-radius: 50%; margin-top: 6px; border: 2px solid var(--line); }
-#list .mark.done { background: var(--ok); border-color: var(--ok); }
-#list .mark.hold { background: var(--warn); border-color: var(--warn); }
-#list .mark.draft { border-color: var(--accent); border-style: dashed; }
-#complete button { margin-top: 8px; }
-#card { padding: 20px 24px; }
-.meta { display: flex; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--sub); margin-bottom: 6px; }
-.chip { background: var(--accent-soft); color: var(--accent); border-radius: 10px; padding: 1px 10px; }
-#card h2 { font-size: 15px; margin: 4px 0 10px; color: var(--sub); font-weight: normal; }
-.ask { font-size: 17px; line-height: 1.8; margin: 0 0 12px; white-space: pre-wrap; }
-.box { border-left: 3px solid var(--line); padding: 4px 12px; margin: 10px 0; white-space: pre-wrap; }
+#card { border-top: 6px solid var(--kc, var(--accent)); }
+.cbody { padding: 12px 20px 10px; }
+.meta { display: flex; gap: 10px; align-items: baseline; font-size: 12px; color: var(--sub); }
+.meta .kind { color: var(--kc, var(--accent)); font-weight: bold; }
+.meta .pos { margin-left: auto; }
+.meta .st { border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; }
+.title { font-size: 21px; font-weight: bold; line-height: 1.4; margin: 2px 0 0; }
+.where { font-size: 13px; color: var(--sub); }
+.lead { font-size: 16px; line-height: 1.65; margin: 8px 0 0; white-space: pre-wrap; }
+.rest { font-size: 13px; line-height: 1.7; color: var(--sub); white-space: pre-wrap; margin: 2px 0 0; }
+.idea { margin: 10px 0 0; padding: 8px 14px; border-radius: 8px; background: var(--ok-soft); }
+.idea .tag { font-size: 11px; color: var(--ok); font-weight: bold; }
+.idea .main { font-size: 17px; font-weight: bold; line-height: 1.5; white-space: pre-wrap; }
+.idea .why { font-size: 12px; line-height: 1.6; color: var(--sub); white-space: pre-wrap; margin-top: 2px; }
+.how { margin: 10px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--sub); white-space: pre-wrap; padding-left: 10px; border-left: 3px solid var(--line); }
+.how b { display: block; color: var(--ink); font-size: 11px; }
+.box { border-left: 3px solid var(--line); padding: 4px 12px; margin: 6px 0; white-space: pre-wrap; font-size: 13px; }
 .box b { display: block; font-size: 12px; color: var(--sub); }
 .box.advice { border-color: var(--ok); background: var(--ok-soft); }
-details { margin: 10px 0; }
-summary { cursor: pointer; color: var(--sub); font-size: 13px; }
-.answer { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
-.answer label { display: block; font-size: 12px; color: var(--sub); margin: 10px 0 4px; }
-.answer label.check { display: flex; gap: 6px; align-items: center; font-size: 14px; color: var(--ink); }
-.results { display: flex; gap: 8px; flex-wrap: wrap; }
+details { margin: 6px 0 0; }
+summary { cursor: pointer; color: var(--sub); font-size: 12px; }
+.answer { position: sticky; bottom: 0; background: var(--panel); border-top: 1px solid var(--line); border-radius: 0 0 10px 10px; padding: 8px 16px 10px; box-shadow: 0 -6px 12px -10px rgba(0,0,0,.25); }
+.answer label { display: block; font-size: 12px; color: var(--sub); margin: 6px 0 2px; }
+.answer label[for=memo] { display: none; }
+.results { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 6px; }
+.results button { padding: 5px 6px; border-radius: 8px; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; line-height: 1.3; white-space: nowrap; }
+.results button .ic { font-size: 15px; font-weight: bold; }
+.results button .key { font-size: 10px; color: var(--sub); border: 1px solid var(--line); border-radius: 3px; padding: 0 3px; line-height: 1.3; }
 .results button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
-textarea { width: 100%; min-height: 90px; font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
+.results button[data-kind="advice"].on { background: var(--ok); border-color: var(--ok); }
+.results button.on .key { color: inherit; opacity: .8; }
+.results button.on * { pointer-events: none; }
+.results button * { pointer-events: none; }
+textarea { width: 100%; min-height: 70px; font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
+#memo { min-height: 32px; height: 32px; margin-top: 6px; resize: vertical; }
+#memo:focus, #memo.has { height: 72px; }
 #notice:empty { display: none; }
-#notice { max-width: 1280px; margin: 12px auto 0; padding: 10px 16px; border: 1px solid var(--accent); border-radius: 8px; background: var(--accent-soft); white-space: pre-wrap; }
+#notice { max-width: 860px; margin: 10px auto 0; padding: 10px 16px; border: 1px solid var(--accent); border-radius: 8px; background: var(--accent-soft); white-space: pre-wrap; }
 #notice button { margin: 8px 8px 0 0; }
-.nav { display: flex; justify-content: space-between; margin-top: 16px; }
+.nav { display: flex; gap: 8px; margin-top: 6px; }
+.nav #decide, .nav #redo { flex: 1; padding: 5px; font-size: 14px; }
 .changed { color: var(--warn); font-size: 12px; }
 .hint { font-size: 12px; color: var(--sub); }
 </style>
@@ -93,13 +118,11 @@ textarea { width: 100%; min-height: 90px; font: inherit; padding: 8px; border: 1
 <div id="notice" role="status" aria-live="polite"></div>
 
 <main id="main">
-  <aside>
-    <div class="panel" id="check"></div>
-    <div class="panel">
-      <div id="filters"></div>
-      <div id="list"></div>
-    </div>
-  </aside>
+  <div class="panel strip">
+    <div id="filters"></div>
+    <div id="list" aria-label="カード（色：緑 決定済み・橙 保留・枠 書きかけ・灰 未回答）"></div>
+    <details id="checkwrap"><summary id="checksum"></summary><div id="check"></div></details>
+  </div>
   <section class="panel" id="card"></section>
 </main>
 
@@ -241,6 +264,33 @@ function cellText(c, shared) {
 
 // ボタン（両方のカードで同じ）。おすすめどおりは、おすすめの無い問いには出さない。回答を書くは、回答の欄に答えが要る
 const KINDS = [["advice", "おすすめどおり"], ["answer", "回答を書く"], ["ask", "QAに起票"], ["hold", "保留"], ["none", "不要"]];
+const KIND_ICON = { advice: "✓", answer: "✎", ask: "？", hold: "⏸", none: "✕" };
+// 区分（確認一覧）・種別（要確認事項）ごとのカードの色。無い名前は出てきた順に色を回す
+const KIND_COLOR = { "資料の食い違い": 0, "資料の書き漏れ": 1, "共通の問い": 2, "答えてもらう問い": 3, "おすすめでいいか": 4, "ふつうはこうする": 5, "業務": 3, "開発": 2, "両方": 5 };
+function kindColor(name) {
+  if (name in KIND_COLOR) return `var(--c${KIND_COLOR[name]})`;
+  const names = [...new Set(book.rows.map(r => r.v[book.lay.kind]))];
+  return `var(--c${names.indexOf(name) % 6})`;
+}
+// おすすめを、答えと末尾の括弧（根拠など）に分ける（カードに出すだけ。xlsx に書くのは adviceAnswer）
+function adviceParts(text) {
+  let t = (text || "").trim().replace(/。$/, "");
+  const notes = [];
+  while (t.endsWith("）")) {
+    const a = adviceAnswer(t);
+    if (a === t) break;
+    notes.unshift(t.slice(a.length).replace(/^（|）$/g, ""));
+    t = a.trim();
+  }
+  return [t, notes];
+}
+const same = (a, b) => !!b && (a || "").trim().replace(/。$/, "") === b.trim();
+// 問いの最初の1文と残り
+function splitLead(text) {
+  const t = (text || "").trim(), m = t.match(/^[^。\n]*[。]?/);
+  const lead = m ? m[0] : t;
+  return [lead, t.slice(lead.length).trim()];
+}
 // 確認一覧の確認結果に書く値（前の作りの値も読めるようにする）
 const RESULT_OF = { advice: "妥当", answer: "回答", ask: "QAに起票", hold: "保留", none: "不要" };
 const KIND_OF = { "妥当": "advice", "回答": "answer", "違う": "answer", "QAに起票": "ask", "お客様に確認": "ask", "保留": "hold", "持ち帰り": "hold", "不要": "none" };
@@ -454,6 +504,9 @@ function renderCheck() {
     `<div class="row"><span>　うち保留</span><b>${hold}</b></div>` +
     `<div class="row"><span>　うちQAに起票</span><b>${ask}</b></div>`;
   $("progress").textContent = `決定 ${done} / ${n}`;
+  $("checksum").innerHTML = `件数の点検：<span class="${ok ? "" : "bad"}">${ok ? "表紙と合っている" : "表紙と合っていない"}</span>` +
+    `・書きかけ <span class="${drafts ? "bad" : ""}">${drafts}</span>・保留 ${hold}・QAに起票 ${ask}` + (redos ? `・<span class="bad">決め直し中 ${redos}</span>` : "");
+  if (!ok) $("checkwrap").open = true;
   $("filters").innerHTML = filters().map(([k]) => `<button data-f="${esc(k)}" class="${k === filter ? "on" : ""}" aria-pressed="${k === filter}">${esc(k)}</button>`).join("");
 }
 
@@ -465,8 +518,7 @@ function label(row) {
 
 function renderList() {
   $("list").innerHTML = visible().map(([row, i]) =>
-    `<div class="item ${i === cur ? "cur" : ""}" data-i="${i}" role="button" tabindex="0" aria-current="${i === cur}" aria-label="${esc(row.v["No."])}（${STATE_NAME[state(row)]}）"><span class="mark ${state(row) === "redo" ? "draft" : state(row)}"></span>` +
-    `<span><span class="no">${esc(row.v["No."])}</span><br>${esc(label(row))}</span></div>`).join("");
+    `<span class="item ${state(row)} ${i === cur ? "cur" : ""}" data-i="${i}" role="button" tabindex="0" aria-current="${i === cur}" aria-label="${esc(row.v["No."])}（${STATE_NAME[state(row)]}）" title="${esc(row.v["No."])}（${STATE_NAME[state(row)]}）\n${esc(label(row))}"></span>`).join("");
   const el = $("list").querySelector(".cur");
   if (el) el.scrollIntoView({ block: "nearest" });
 }
@@ -481,30 +533,38 @@ function renderCard() {
       `${c.n} 行のうち、おすすめどおり ${c.advice}・QAに起票 ${c.ask}・保留 ${c.hold}・そのほか ${c.n - c.advice - c.ask - c.hold}` +
       `\n<button class="primary" id="saveDone">答えを入れた xlsx を保存</button></div>`;
   }
-  html +=
-    `<div class="meta"><span>${esc(v["No."])}</span><span class="chip">${esc(v[lay.kind])}</span><span>${cur + 1} / ${book.rows.length}</span>` +
-    `<span class="chip">${STATE_NAME[state(row)]}</span></div>` +
-    `<h2>${esc(v["項目"])}${v[lay.where] ? "（" + esc(v[lay.where]) + "）" : ""}</h2>` +
-    `<p class="ask">${esc(v[lay.ask])}</p>` +
-    (v["AI のおすすめ"] ? `<div class="box advice"><b>AI のおすすめ</b>${esc(v["AI のおすすめ"])}</div>` : "") +
-    (v["確かめ方"] ? `<div class="box"><b>確かめ方</b>${esc(v["確かめ方"])}</div>` : "") +
-    extra.map(h => `<details><summary>${esc(h)}</summary><div class="box">${esc(v[h])}</div></details>`).join("");
+  const sameAsKind = !v["項目"] || v["項目"].startsWith(v[lay.kind]);
+  const title = sameAsKind ? (v[lay.where] || v[lay.kind]) : v["項目"];
+  const sub = sameAsKind ? v["項目"] : v[lay.where];
+  const [lead, rest] = splitLead(v[lay.ask]);
+  const [idea, why] = adviceParts(v["AI のおすすめ"]);
+  $("card").style.setProperty("--kc", kindColor(v[lay.kind]));
+  html += `<div class="cbody">` +
+    `<div class="meta"><span class="kind">${esc(v[lay.kind])}</span><span>${esc(v["No."])}</span><span class="st">${STATE_NAME[state(row)]}</span>` +
+    `<span class="pos">${cur + 1} / ${book.rows.length}</span></div>` +
+    `<h2 class="title">${esc(title)}</h2>` + (sub && sub !== title ? `<div class="where">${esc(sub)}</div>` : "") +
+    // おすすめでいいかの問いは、問いの文が AI の案と同じなので、案だけを出す
+    (same(v[lay.ask], idea) ? "" : `<p class="lead">${esc(lead)}</p>` + (rest ? `<p class="rest">${esc(rest)}</p>` : "")) +
+    (idea ? `<div class="idea"><div class="tag">AI の案</div><div class="main">${esc(idea)}</div>` +
+      (why.length ? `<div class="why">${esc(why.join("\n"))}</div>` : "") + `</div>` : "") +
+    (v["確かめ方"] ? `<div class="how"><b>確かめ方</b>${esc(v["確かめ方"])}</div>` : "") +
+    extra.map(h => `<details><summary>${esc(h)}</summary><div class="box">${esc(v[h])}</div></details>`).join("") +
+    `</div>`;
   const k = nowKind(row), ro = locked ? "readonly" : "";
   html += `<div class="answer"><div class="results">` +
     KINDS.filter(([key]) => key !== "advice" || v["AI のおすすめ"])   // おすすめの無い問いには、おすすめどおりを出さない
-      .map(([key, name]) => `<button data-kind="${key}" class="${k === key ? "on" : ""}" aria-pressed="${k === key}" ${locked ? "disabled" : ""}>${esc(name)}</button>`).join("") +
+      .map(([key, name]) => `<button data-kind="${key}" class="${k === key ? "on" : ""}" aria-pressed="${k === key}" aria-label="${esc(name)}" ${locked ? "disabled" : ""}>` +
+        `<span class="ic">${KIND_ICON[key]}</span><span>${esc(name)}</span><span class="key">${KINDS.findIndex(([x]) => x === key) + 1}</span></button>`).join("") +
     `</div>` +
     (k === "advice" ? `<div class="box advice"><b>回答</b>${esc(adviceAnswer(v["AI のおすすめ"]))}</div>` : "") +
     (k === "answer" ? `<label for="ans">回答</label><textarea id="ans" ${ro}></textarea>` : "") +
     (k === "ask" ? `<label for="qa">起票する質問の文（直せます）</label><textarea id="qa" rows="4" ${ro}></textarea>` : "") +
-    `<label for="memo">備考</label><textarea id="memo" ${ro}></textarea>` +
-    (!locked && !k && savedKind(row) ? `<div class="box">ボタンを全部外して決定すると、前に決めた答え（${esc(row.saved["確認結果"])}）を消して未回答に戻します</div>` : "") +
-    `<p class="hint">決定した答えだけを、確認結果・回答・備考・QA起票文の列に書きます。ほかの列は変えません。</p></div>`;
+    `<label for="memo">備考</label><textarea id="memo" placeholder="備考（どのボタンでも書けます）" ${ro}></textarea>` +
+    (!locked && !k && savedKind(row) ? `<div class="box">ボタンを全部外して決定すると、前に決めた答え（${esc(row.saved["確認結果"])}）を消して未回答に戻します</div>` : "");
   const shown = visible().map(([, i]) => i), at = shown.indexOf(cur);
-  html += `<div class="nav"><button id="prev" ${at === 0 ? "disabled" : ""}>← 前へ</button>` +
-    (locked ? `<button id="redo">決め直す</button>` : `<button class="primary" id="decide" ${canDecide(row) ? "" : "disabled"}>${!k && savedKind(row) ? "答えを消す" : "決定して次へ"}</button>`) +
-    `<button id="next" ${at === shown.length - 1 ? "disabled" : ""}>次へ →</button></div>` +
-    `<p class="hint" style="text-align:center">キーボードの ← → でも送れます</p>`;
+  html += `<div class="nav"><button id="prev" ${at === 0 ? "disabled" : ""} title="←">←</button>` +
+    (locked ? `<button id="redo">決め直す</button>` : `<button class="primary" id="decide" ${canDecide(row) ? "" : "disabled"} title="Enter">${!k && savedKind(row) ? "答えを消す" : "決定して次へ"}</button>`) +
+    `<button id="next" ${at === shown.length - 1 ? "disabled" : ""} title="→">→</button></div></div>`;
   $("card").innerHTML = html;
   // 文字は value で入れる（HTML として読ませない）。回答・起票する質問の文・備考の欄は、列の値に入れる
   if (k === "ask" && !locked && !v["QA起票文"]) v["QA起票文"] = v[lay.ask];   // 初めは業務向けの問いの文
@@ -512,6 +572,7 @@ function renderCard() {
     if (!$(id)) continue;
     $(id).value = v[key] ?? "";
     $(id).addEventListener("input", e => { v[key] = e.target.value; inputChanged(); });
+    if (id === "memo" && v[key]) $(id).classList.add("has");
   }
 }
 
@@ -620,10 +681,13 @@ $("filters").addEventListener("click", e => {
 $("list").addEventListener("click", e => { const it = e.target.closest(".item"); if (it) go(+it.dataset.i); });
 $("list").addEventListener("keydown", e => { const it = e.target.closest(".item"); if (it && e.key === "Enter") go(+it.dataset.i); });
 $("card").addEventListener("click", e => {
-  if (e.target.dataset.kind !== undefined) {   // もう一度押すと外す
-    const row = book.rows[cur], k = e.target.dataset.kind;
+  const kb = e.target.closest("[data-kind]");
+  if (kb) {   // もう一度押すと外す
+    const row = book.rows[cur], k = kb.dataset.kind;
     row.v["確認結果"] = nowKind(row) === k ? "" : RESULT_OF[k];
     refresh();
+    const f = $({ answer: "ans", ask: "qa" }[nowKind(row)]);
+    if (f) f.focus();
   }
   if (e.target.id === "decide") decide(cur);
   if (e.target.id === "redo") redo(cur);
@@ -650,7 +714,10 @@ const typing = el => el && (el.tagName === "TEXTAREA" || el.tagName === "INPUT")
 document.addEventListener("keydown", e => {
   if (!book || typing(document.activeElement) || e.ctrlKey || e.altKey || e.metaKey) return;
   const d = { ArrowLeft: -1, ArrowRight: 1 }[e.key];
-  if (d) { e.preventDefault(); step(d); }
+  if (d) { e.preventDefault(); step(d); return; }
+  const b = /^[1-5]$/.test(e.key) && $("card").querySelector(`[data-kind="${KINDS[+e.key - 1][0]}"]`);
+  if (/^[1-5]$/.test(e.key) && b && !b.disabled) { e.preventDefault(); b.click(); return; }
+  if (e.key === "Enter" && !e.target.closest?.("button, .item, summary") && $("decide") && !$("decide").disabled) { e.preventDefault(); $("decide").click(); }
 });
 $("save").addEventListener("click", async () => {
   const ch = changes();
