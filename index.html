@@ -136,6 +136,8 @@ textarea { width: 100%; min-height: 70px; font: inherit; padding: 6px 8px; borde
   <span class="spacer"></span>
   <b id="progress"></b>
   <span class="changed" id="dirty"></span>
+  <button id="carry" disabled title="前の版で答えを書いた xlsx から、No. と問いが同じ行の答えを写します">前の版から引き継ぐ</button>
+  <input type="file" id="carrypick" accept=".xlsx" hidden>
   <button id="qaout" disabled title="「QAに起票」にして決定したものだけを、QA表の列の並びで xlsx にします">起票分を出力</button>
   <button class="primary" id="save" disabled>答えを入れた xlsx を保存</button>
 </header>
@@ -144,6 +146,7 @@ textarea { width: 100%; min-height: 70px; font: inherit; padding: 6px 8px; borde
   <p><b>受け入れ基準と要確認事項か、確認一覧の xlsx を、ここに置くか選んでください</b></p>
   <p>ファイルはこのパソコンの中だけで読みます（どこにも送りません）</p>
   <p>補足（&lt;機能名&gt;_補足.json）があれば、一緒に選ぶか置いてください</p>
+  <p>前の版で答えを書いた xlsx があれば、新しい版と一緒に選ぶと、問いが同じ行の答えを引き継ぎます</p>
   <p><label for="pick">xlsx ファイルを選ぶ</label> <input type="file" id="pick" accept=".xlsx,.json" multiple aria-label="xlsx ファイルを選ぶ"></p>
   <p id="status" style="color: var(--warn); font-weight: bold;">このページは今、動いていません。Edge か Chrome で開き直してください（Claude のアプリの中では動きません）。</p>
 </div>
@@ -670,7 +673,11 @@ function refreshSide() {   // 打っている間は、左の一覧を少し待�
 // ---------- 控え：カードで入れたものを、このブラウザの中にだけ残す（読み込み直しても戻せるように） ----------
 // 保存し直すとブラウザが名前に「 (1)」などを付けるので、それを外した名前で控える・保存する
 const baseName = () => book.name.replace(/\s*\(\d+\)(?=\.xlsx$)/i, "");
-const draftKey = () => `確認一覧カード｜${baseName()}｜${book.lay.sheet}`;
+// 版（名前の _20261117 の日付）を外した名前。版が変わっても同じ控えを使う
+const VERSION = /_\d{8}(?=(?:_[^_.]+)?\.xlsx$)/i;
+const stemOf = name => name.replace(/\s*\(\d+\)(?=\.xlsx$)/i, "").replace(VERSION, "");
+const dateOf = name => (name.replace(/\s*\(\d+\)(?=\.xlsx$)/i, "").match(/_(\d{8})(?=(?:_[^_.]+)?\.xlsx$)/i) || [])[1] || "";
+const draftKey = () => `確認一覧カード｜${stemOf(book.name)}｜${book.lay.sheet}`;
 
 function snapshot() {
   const out = {};
@@ -679,7 +686,7 @@ function snapshot() {
 }
 
 function saveDraft() {
-  try { localStorage.setItem(draftKey(), JSON.stringify({ at: new Date().toLocaleString("ja-JP"), items: snapshot() })); } catch (e) { /* 控えられなくても、ページは動く */ }
+  try { localStorage.setItem(draftKey(), JSON.stringify({ at: new Date().toLocaleString("ja-JP"), ts: Date.now(), name: baseName(), items: snapshot() })); } catch (e) { /* 控えられなくても、ページは動く */ }
 }
 
 // 知らせの欄に文（とボタン）を出す。buttons：[[id, 文字, 押したとき]]
@@ -691,9 +698,23 @@ function notice(text, buttons = []) {
 // 同じ xlsx（名前とシートが同じ）の控えがあり、今の中身と違えば、戻すかを訊く（知らせの欄のボタンで）。
 // 答えてからカードを出す（答える前に入れたものを、あとで控えで上書きしないように）。
 // 前の作り（要確認事項を小問に分けていたとき）の控えは、行の No. と合わないので戻さない
-function restoreDraft(start) {
+// 版を外した名前の控えが無ければ、前の作り（日付込みの名前）で残した控えのうち、いちばん新しいものを使う
+function findDraft() {
+  const own = JSON.parse(localStorage.getItem(draftKey()) || "null");
+  if (own) return own;
+  let best = null;
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i), [head, name, sheet] = (k || "").split("｜");
+    if (head !== "確認一覧カード" || sheet !== book.lay.sheet || !name || stemOf(name) !== stemOf(book.name)) continue;
+    const d = JSON.parse(localStorage.getItem(k) || "null");
+    if (d && (!best || (d.ts || 0) >= (best.ts || 0))) best = { ...d, name: d.name || name };
+  }
+  return best;
+}
+
+function restoreDraft(start, lead = "") {
   let stored;
-  try { stored = JSON.parse(localStorage.getItem(draftKey()) || "null"); } catch (e) { return start(); }
+  try { stored = findDraft(); } catch (e) { return start(); }
   if (!stored) return start();
   const now = snapshot(), back = [];
   for (const row of book.rows) {
@@ -702,7 +723,8 @@ function restoreDraft(start) {
   }
   if (!back.length) return start();
   const dec = back.filter(([, s]) => s.decided).length;
-  notice(`前回（${stored.at}）にこのファイルで入れたものが残っています（${back.length} 件。うち決定 ${dec}・書きかけ ${back.length - dec}）。続きから始めますか？`,
+  const where = stored.name && stored.name !== baseName() ? `前の版（${stored.name}）で` : "このファイルで";
+  notice(`${lead}前回（${stored.at}）に${where}入れたものが残っています（問いが同じ行 ${back.length} 件。うち決定 ${dec}・書きかけ ${back.length - dec}）。続きから始めますか？`,
     [["restoreYes", "続きから始める", () => { applyDraft(back); start(); }], ["restoreNo", "xlsx に書いてあるとおりで始める", start]]);
 }
 
@@ -717,13 +739,41 @@ function refresh(card = true) {
   $("dirty").textContent = n ? `保存していない書き換え ${n} セル` : "";
   $("save").disabled = n === 0;
   $("qaout").disabled = !qaRows().length;
+  $("carry").disabled = false;
 }
 
 function go(i) { cur = Math.max(0, Math.min(book.rows.length - 1, i)); refresh(); }
 
 function status(text, bad = false) { $("status").textContent = text; $("status").style.color = bad ? "var(--warn)" : "var(--sub)"; }
 
-async function openFile(file) {
+// 前の版の xlsx から、No. と問いの文が同じ行の答えを写す。今の xlsx にもう答えがある行には写さない
+async function carryFrom(file) {
+  const old = await readBook(await file.arrayBuffer(), file.name);
+  if (old.lay.sheet !== book.lay.sheet) return `${file.name} は「${old.lay.sheet}」のシートなので、引き継げません（今のファイルは「${book.lay.sheet}」）。`;
+  const filled = v => Object.values(rowSaved(v)).some(x => (x || "").trim());
+  const prev = new Map(old.rows.map(r => [r.v["No."], r]));
+  const now = new Set(book.rows.map(r => r.v["No."]));
+  let got = 0, changed = 0, kept = 0;
+  for (const row of book.rows) {
+    const p = prev.get(row.v["No."]);
+    if (!p || !filled(p.v)) continue;
+    if (p.v[old.lay.ask] !== row.v[book.lay.ask]) { changed++; continue; }
+    if (filled(row.v)) { kept++; continue; }
+    Object.assign(row.v, rowSaved(p.v));
+    row.saved = rowSaved(row.v);
+    row.decided = !!(row.v["確認結果"] || row.v["回答"].trim());
+    got++;
+  }
+  const fresh = book.rows.filter(r => !prev.has(r.v["No."])).length;
+  const gone = old.rows.filter(r => !now.has(r.v["No."]) && filled(r.v)).length;
+  return [`${file.name} から ${got} 件の答えを引き継ぎました。`,
+    changed ? `問いの文が変わった ${changed} 件は、答え直しが要るので空のままです。` : "",
+    fresh ? `新しい行が ${fresh} 件あります。` : "",
+    kept ? `この xlsx にもう答えがある ${kept} 件は、そのままにしました。` : "",
+    gone ? `前の版にだけあった ${gone} 件の答えは、行が無くなったので引き継いでいません。` : ""].join("");
+}
+
+async function openFile(file, olds = []) {
   try {
     status(`${file.name} を読んでいます…（ファイルを開く）`);
     const buf = await file.arrayBuffer();
@@ -732,11 +782,14 @@ async function openFile(file) {
     $("fname").textContent = file.name;
     $("drop").style.display = "none";
     $("main").classList.remove("on");
+    let lead = "";
+    for (const f of olds) lead += await carryFrom(f) + " ";
     restoreDraft(() => {
       cur = Math.max(0, book.rows.findIndex(r => !r.decided)); filter = "すべて";
       $("main").classList.add("on");
       refresh();
-    });
+      if (lead) notice(lead.trim());
+    }, lead);
   } catch (e) {
     status(`読み込めませんでした：${e.message || e}`, true);
   }
@@ -749,11 +802,21 @@ async function openFiles(files) {
   for (const f of list.filter(f => /\.json$/i.test(f.name))) {
     try { supp = JSON.parse(await f.text()); } catch (e) { status(`補足を読めませんでした：${e.message}`, true); }
   }
-  const x = list.find(f => /\.xlsx$/i.test(f.name));
-  if (x) await openFile(x);
+  // xlsx を2つ以上選んだら、名前の日付がいちばん新しいものを開き、同じ名前（版違い）の残りから答えを引き継ぐ
+  const xs = list.filter(f => /\.xlsx$/i.test(f.name)).sort((a, b) => dateOf(b.name).localeCompare(dateOf(a.name)));
+  const x = xs[0];
+  if (x) await openFile(x, xs.slice(1).filter(f => stemOf(f.name) === stemOf(x.name)));
   else if (book) refresh();
 }
 $("pick").addEventListener("change", e => openFiles(e.target.files));
+$("carry").addEventListener("click", () => $("carrypick").click());
+$("carrypick").addEventListener("change", async e => {
+  const f = e.target.files[0];
+  e.target.value = "";
+  if (!f || !book) return;
+  try { const msg = await carryFrom(f); refresh(); notice(msg); }
+  catch (err) { notice(`引き継げませんでした：${err.message || err}`); }
+});
 const drop = $("drop");
 drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
 drop.addEventListener("dragleave", () => drop.classList.remove("over"));
